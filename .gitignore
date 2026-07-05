@@ -3,4 +3,6 @@
 *.xlsx
 *.xls
 *.xlsm
-
+.firebase/
+firebase-debug.log
+firestore-debug.log

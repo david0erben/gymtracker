@@ -604,6 +604,92 @@
       font-size: 1.05rem;
     }
 
+    .sync-card {
+      margin-bottom: 14px;
+    }
+
+    .sync-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .sync-heading h3 {
+      margin: 0;
+    }
+
+    .sync-status {
+      display: inline-flex;
+      min-height: 28px;
+      align-items: center;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+
+    .sync-status[data-state="success"] {
+      background: var(--primary-soft);
+      color: var(--primary-dark);
+    }
+
+    .sync-status[data-state="pending"] {
+      background: #fff5d9;
+      color: #805e00;
+    }
+
+    .sync-status[data-state="error"] {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .sync-login {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 14px;
+      border-radius: 13px;
+      background: var(--surface-soft);
+    }
+
+    .sync-login p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .sync-auth-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 11px 13px;
+      border-radius: 12px;
+      background: var(--primary-soft);
+      color: var(--primary-dark);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .sync-auth-info button {
+      min-height: 38px;
+      padding: 7px 11px;
+    }
+
+    .sync-actions {
+      display: grid;
+      gap: 9px;
+    }
+
+    .sync-actions button {
+      width: 100%;
+    }
+
     @media (min-width: 680px) {
       .app-header {
         padding-right: 24px;
@@ -689,6 +775,19 @@
         grid-column: 2;
         grid-row: 1 / span 2;
       }
+
+      .sync-login {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+        align-items: end;
+      }
+
+      .sync-login p {
+        grid-column: 1 / -1;
+      }
+
+      .sync-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (min-width: 980px) {
@@ -705,7 +804,7 @@
         <div class="brand-mark" aria-hidden="true">G</div>
         <div>
           <h1>Gym Tracker</h1>
-          <p>Lokal gespeichert · immer griffbereit</p>
+          <p id="header-sync-status">Lokal geladen</p>
         </div>
       </div>
       <nav class="nav" aria-label="Hauptnavigation">
@@ -819,6 +918,34 @@
         <p>Backup erstellen oder Daten auf ein anderes Gerät übertragen.</p>
       </div>
       <div id="data-notice" class="notice" role="status"></div>
+      <div class="card sync-card">
+        <div class="sync-heading">
+          <h3>Cloud-Synchronisierung</h3>
+          <span class="sync-status" id="sync-status" data-state="local" role="status">Lokal geladen</span>
+        </div>
+        <form class="sync-login" id="firebase-login-form">
+          <p id="firebase-auth-hint">Melde dich mit deinem Firebase-Konto an, um Geräte zu synchronisieren.</p>
+          <div>
+            <label class="field-label" for="firebase-email">E-Mail</label>
+            <input class="text-input" id="firebase-email" type="email" autocomplete="username" required>
+          </div>
+          <div>
+            <label class="field-label" for="firebase-password">Passwort</label>
+            <input class="text-input" id="firebase-password" type="password" autocomplete="current-password" required>
+          </div>
+          <button class="primary-button" id="firebase-login" type="submit">Anmelden</button>
+        </form>
+        <div class="sync-auth-info" id="firebase-auth-info" hidden>
+          <span id="firebase-user">Angemeldet</span>
+          <button class="secondary-button" id="firebase-logout" type="button">Abmelden</button>
+        </div>
+        <div class="sync-actions">
+          <button class="primary-button" id="sync-now" type="button">Jetzt synchronisieren</button>
+          <button class="secondary-button" id="cloud-load" type="button">Cloud-Daten laden</button>
+          <button class="secondary-button" id="cloud-overwrite" type="button">Lokale Daten in Cloud überschreiben</button>
+          <button class="danger-button" id="cloud-delete" type="button">Cloud-Daten löschen</button>
+        </div>
+      </div>
       <div class="card">
         <div class="data-action">
           <strong>Daten exportieren</strong>
@@ -836,9 +963,9 @@
           <button class="secondary-button" id="reload-excel-data" type="button">Excel-Importdaten erneut laden</button>
         </div>
         <div class="data-action">
-          <strong>Alle Daten löschen</strong>
-          <p>Entfernt unwiderruflich alle lokalen Einträge und Entwürfe.</p>
-          <button class="danger-button" id="delete-data" type="button">Alle Daten löschen</button>
+          <strong>Lokale Daten löschen</strong>
+          <p>Leert nur den Offline-Cache. Cloud-Daten bleiben erhalten.</p>
+          <button class="danger-button" id="delete-data" type="button">Lokale Daten löschen</button>
         </div>
         <div class="data-summary" id="data-summary"></div>
       </div>
@@ -847,6 +974,23 @@
 
   <script>
     "use strict";
+
+    // =========================================================================
+    // FIREBASE-KONFIGURATION
+    // Werte aus: Firebase Console → Projekteinstellungen → Deine Apps → Web-App
+    // Die Firebase Web Config ist öffentlich und enthält keine geheimen Schlüssel.
+    // =========================================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyCeepsqscIyVCFohnV7mRB01E0aXpqPD6g",
+      authDomain: "gym-tracker-5f06a.firebaseapp.com",
+      projectId: "gym-tracker-5f06a",
+      storageBucket: "gym-tracker-5f06a.firebasestorage.app",
+      messagingSenderId: "6355345398",
+      appId: "1:6355345398:web:8f9e8088a80eda597671d7"
+    };
+
+    const FIREBASE_SDK_VERSION = "12.15.0";
+    const CURRENT_DATA_VERSION = 2;
 
     // --- Fester Trainingsplan -------------------------------------------------
     // Rep-Ranges aus den Excel-Überschriften in Zeile 2:
@@ -1045,11 +1189,22 @@
     let analyticsMode = "best";
     let noticeTimers = {};
     const chartStates = {};
+    let firebaseSdk = null;
+    let firebaseAuth = null;
+    let firestoreDb = null;
+    let cloudDocument = null;
+    let currentFirebaseUser = null;
+    let unsubscribeCloud = null;
+    let syncTimer = null;
+    let syncReady = false;
+    let cloudWriteInProgress = false;
+    let unsyncedChanges = false;
+    let localRevision = 0;
 
     // --- Datenmodell und Persistenz ------------------------------------------
     function emptyData() {
       return {
-        version: 1,
+        version: CURRENT_DATA_VERSION,
         workouts: [],
         bodyweight: [],
         draftWorkout: {
@@ -1121,7 +1276,7 @@
       if (!raw || typeof raw !== "object") return fallback;
 
       const normalized = {
-        version: 1,
+        version: CURRENT_DATA_VERSION,
         workouts: Array.isArray(raw.workouts) ? raw.workouts : [],
         bodyweight: Array.isArray(raw.bodyweight) ? raw.bodyweight : [],
         draftWorkout: raw.draftWorkout && typeof raw.draftWorkout === "object"
@@ -1166,9 +1321,389 @@
       return normalized;
     }
 
-    function saveData() {
+    function saveLocalCache() {
+      data.version = CURRENT_DATA_VERSION;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       updateDataSummary();
+    }
+
+    function saveData() {
+      saveLocalCache();
+      localRevision += 1;
+      unsyncedChanges = true;
+      scheduleCloudSync();
+    }
+
+    // --- Firebase Auth und Firestore Sync ------------------------------------
+    function firebaseIsConfigured() {
+      return [
+        "apiKey",
+        "authDomain",
+        "projectId",
+        "storageBucket",
+        "messagingSenderId",
+        "appId"
+      ].every(key =>
+        typeof firebaseConfig[key] === "string" && firebaseConfig[key].length > 0
+      );
+    }
+
+    async function initializeFirebaseSync() {
+      updateFirebaseAuthUI(null);
+      if (!firebaseIsConfigured()) {
+        setSyncStatus("Firebase-Konfiguration fehlt", "error");
+        updateSyncControls();
+        return;
+      }
+
+      setSyncStatus("Firebase wird geladen …", "pending");
+      try {
+        // Dynamische CDN-Imports lassen die lokale App auch dann starten, wenn
+        // Firebase nicht erreichbar ist oder das Gerät offline ist.
+        const baseUrl = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}`;
+        const [appModule, authModule, firestoreModule] = await Promise.all([
+          import(`${baseUrl}/firebase-app.js`),
+          import(`${baseUrl}/firebase-auth.js`),
+          import(`${baseUrl}/firebase-firestore.js`)
+        ]);
+        firebaseSdk = {
+          initializeApp: appModule.initializeApp,
+          getAuth: authModule.getAuth,
+          onAuthStateChanged: authModule.onAuthStateChanged,
+          signInWithEmailAndPassword: authModule.signInWithEmailAndPassword,
+          signOut: authModule.signOut,
+          setPersistence: authModule.setPersistence,
+          browserLocalPersistence: authModule.browserLocalPersistence,
+          getFirestore: firestoreModule.getFirestore,
+          initializeFirestore: firestoreModule.initializeFirestore,
+          persistentLocalCache: firestoreModule.persistentLocalCache,
+          persistentMultipleTabManager: firestoreModule.persistentMultipleTabManager,
+          doc: firestoreModule.doc,
+          getDoc: firestoreModule.getDoc,
+          setDoc: firestoreModule.setDoc,
+          deleteDoc: firestoreModule.deleteDoc,
+          serverTimestamp: firestoreModule.serverTimestamp,
+          onSnapshot: firestoreModule.onSnapshot
+        };
+
+        const app = firebaseSdk.initializeApp(firebaseConfig);
+        firebaseAuth = firebaseSdk.getAuth(app);
+        try {
+          firestoreDb = firebaseSdk.initializeFirestore(app, {
+            localCache: firebaseSdk.persistentLocalCache({
+              tabManager: firebaseSdk.persistentMultipleTabManager()
+            })
+          });
+        } catch (persistenceError) {
+          // Seltene Browser-/Privatmodus-Fälle fallen auf den Firestore-
+          // Speicher-Cache plus den bestehenden LocalStorage-Cache zurück.
+          console.warn("Persistenter Firestore-Cache nicht verfügbar.", persistenceError);
+          firestoreDb = firebaseSdk.getFirestore(app);
+        }
+        await firebaseSdk.setPersistence(firebaseAuth, firebaseSdk.browserLocalPersistence);
+        firebaseSdk.onAuthStateChanged(firebaseAuth, user => {
+          handleFirebaseAuthChange(user).catch(error => handleSyncError(error));
+        });
+      } catch (error) {
+        handleSyncError(error);
+      }
+    }
+
+    async function handleFirebaseAuthChange(user) {
+      currentFirebaseUser = user;
+      updateFirebaseAuthUI(user);
+      updateSyncControls();
+      if (unsubscribeCloud) {
+        unsubscribeCloud();
+        unsubscribeCloud = null;
+      }
+      syncReady = false;
+      cloudDocument = null;
+
+      if (!user) {
+        setSyncStatus("Anmeldung erforderlich", "local");
+        return;
+      }
+      await startCloudSync();
+    }
+
+    async function startCloudSync() {
+      if (!currentFirebaseUser || !firestoreDb) return;
+      cloudDocument = firebaseSdk.doc(
+        firestoreDb,
+        "users",
+        currentFirebaseUser.uid,
+        "data",
+        "main"
+      );
+      setSyncStatus("Cloud-Daten werden geladen …", "pending");
+
+      try {
+        const snapshot = await firebaseSdk.getDoc(cloudDocument);
+        syncReady = true;
+        if (snapshot.exists()) {
+          applyCloudData(snapshot.data());
+        } else if (hasMeaningfulUserData(data)) {
+          // Beim ersten Start wird der sofort geladene LocalStorage-Stand
+          // einschließlich der Excel-Seed-Daten zur Cloud-Grundlage.
+          await pushDataToCloud();
+        } else {
+          setSyncStatus("Cloud-Daten leer", "local");
+        }
+        startCloudListener();
+        if (!unsyncedChanges) setSyncStatus("Synchronisiert", "success");
+      } catch (error) {
+        syncReady = false;
+        handleSyncError(error);
+      }
+      updateSyncControls();
+    }
+
+    function startCloudListener() {
+      if (!cloudDocument) return;
+      if (unsubscribeCloud) unsubscribeCloud();
+      unsubscribeCloud = firebaseSdk.onSnapshot(
+        cloudDocument,
+        snapshot => {
+          if (snapshot.metadata.hasPendingWrites) return;
+          if (!snapshot.exists()) {
+            if (!cloudWriteInProgress) setSyncStatus("Cloud-Daten leer", "local");
+            return;
+          }
+          if (cloudWriteInProgress || unsyncedChanges) return;
+
+          const incoming = normalizeData(snapshot.data());
+          if (dataSignature(incoming) !== dataSignature(data)) {
+            applyCloudData(snapshot.data());
+          } else {
+            setSyncStatus("Synchronisiert", "success");
+          }
+        },
+        error => handleSyncError(error)
+      );
+    }
+
+    function applyCloudData(raw) {
+      const requiresMigration = Number(raw && raw.version) !== CURRENT_DATA_VERSION;
+      clearTimeout(syncTimer);
+      syncTimer = null;
+      unsyncedChanges = false;
+      data = normalizeData(raw);
+      renderAll();
+      saveLocalCache();
+      if (requiresMigration) {
+        localRevision += 1;
+        unsyncedChanges = true;
+        scheduleCloudSync();
+      } else {
+        setSyncStatus("Synchronisiert", "success");
+      }
+    }
+
+    function cloudPayload(source = data) {
+      return {
+        version: CURRENT_DATA_VERSION,
+        workouts: source.workouts,
+        bodyweight: source.bodyweight,
+        draftWorkout: source.draftWorkout
+      };
+    }
+
+    function dataSignature(source) {
+      return JSON.stringify(cloudPayload(source));
+    }
+
+    function scheduleCloudSync() {
+      clearTimeout(syncTimer);
+      syncTimer = null;
+      if (!firebaseIsConfigured()) return;
+      if (!currentFirebaseUser || !syncReady || !cloudDocument) {
+        setSyncStatus("Lokal gespeichert · Anmeldung erforderlich", "local");
+        return;
+      }
+      if (cloudWriteInProgress) {
+        setSyncStatus("Änderungen warten auf Synchronisierung …", "pending");
+        return;
+      }
+
+      setSyncStatus(
+        navigator.onLine
+          ? "Änderungen werden synchronisiert …"
+          : "Offline · Sync vorgemerkt",
+        "pending"
+      );
+      syncTimer = setTimeout(() => {
+        syncTimer = null;
+        pushDataToCloud();
+      }, 800);
+    }
+
+    async function pushDataToCloud() {
+      if (!currentFirebaseUser || !syncReady || !cloudDocument) {
+        setSyncStatus("Anmeldung erforderlich", "local");
+        return false;
+      }
+
+      clearTimeout(syncTimer);
+      syncTimer = null;
+      const revisionAtStart = localRevision;
+      let needsFollowUp = false;
+      cloudWriteInProgress = true;
+      setSyncStatus(
+        navigator.onLine ? "Synchronisiere …" : "Offline · Sync vorgemerkt",
+        "pending"
+      );
+      try {
+        await firebaseSdk.setDoc(cloudDocument, {
+          ...cloudPayload(),
+          updatedAt: firebaseSdk.serverTimestamp()
+        });
+        if (revisionAtStart === localRevision) {
+          unsyncedChanges = false;
+          setSyncStatus("Synchronisiert", "success");
+        } else {
+          needsFollowUp = true;
+        }
+        return true;
+      } catch (error) {
+        unsyncedChanges = true;
+        handleSyncError(error);
+        return false;
+      } finally {
+        cloudWriteInProgress = false;
+        if (needsFollowUp) scheduleCloudSync();
+      }
+    }
+
+    async function loadCloudDataManually() {
+      if (!ensureCloudReady()) return;
+      if (!window.confirm(
+        "Cloud-Daten laden und den aktuellen lokalen Stand auf diesem Gerät ersetzen?"
+      )) return;
+      setSyncStatus("Cloud-Daten werden geladen …", "pending");
+      try {
+        const snapshot = await firebaseSdk.getDoc(cloudDocument);
+        if (!snapshot.exists()) {
+          setSyncStatus("Cloud-Daten leer", "local");
+          showNotice("data-notice", "In der Cloud sind noch keine Daten vorhanden.", true);
+          return;
+        }
+        applyCloudData(snapshot.data());
+        showNotice("data-notice", "Cloud-Daten wurden geladen.");
+      } catch (error) {
+        handleSyncError(error);
+      }
+    }
+
+    async function overwriteCloudData() {
+      if (!ensureCloudReady()) return;
+      if (!window.confirm(
+        "Den aktuellen lokalen Stand vollständig in die Cloud schreiben und dortige Daten ersetzen?"
+      )) return;
+      unsyncedChanges = true;
+      const success = await pushDataToCloud();
+      if (success) showNotice("data-notice", "Cloud-Daten wurden überschrieben.");
+    }
+
+    async function deleteCloudData() {
+      if (!ensureCloudReady()) return;
+      if (!window.confirm(
+        "Cloud-Daten wirklich löschen? Die lokalen Daten auf diesem Gerät bleiben erhalten."
+      )) return;
+      if (!window.confirm(
+        `Letzte Bestätigung: Das Firestore-Dokument users/${currentFirebaseUser.uid}/data/main endgültig löschen?`
+      )) return;
+
+      try {
+        clearTimeout(syncTimer);
+        syncTimer = null;
+        unsyncedChanges = false;
+        await firebaseSdk.deleteDoc(cloudDocument);
+        setSyncStatus("Cloud-Daten gelöscht", "local");
+        showNotice("data-notice", "Cloud-Daten wurden gelöscht. Lokale Daten bleiben erhalten.");
+      } catch (error) {
+        handleSyncError(error);
+      }
+    }
+
+    async function loginToFirebase(event) {
+      event.preventDefault();
+      if (!firebaseAuth || !firebaseSdk) {
+        showNotice("data-notice", "Firebase ist noch nicht konfiguriert oder geladen.", true);
+        return;
+      }
+      const email = document.getElementById("firebase-email").value.trim();
+      const passwordInput = document.getElementById("firebase-password");
+      setSyncStatus("Anmeldung läuft …", "pending");
+      try {
+        await firebaseSdk.signInWithEmailAndPassword(
+          firebaseAuth,
+          email,
+          passwordInput.value
+        );
+        passwordInput.value = "";
+      } catch (error) {
+        passwordInput.value = "";
+        console.warn("Firebase-Anmeldung fehlgeschlagen.", error);
+        setSyncStatus("Anmeldung fehlgeschlagen", "error");
+        showNotice("data-notice", "Anmeldung fehlgeschlagen. E-Mail und Passwort prüfen.", true);
+      }
+    }
+
+    async function logoutFromFirebase() {
+      if (!firebaseAuth || !firebaseSdk) return;
+      try {
+        await firebaseSdk.signOut(firebaseAuth);
+      } catch (error) {
+        handleSyncError(error);
+      }
+    }
+
+    function ensureCloudReady() {
+      if (currentFirebaseUser && syncReady && cloudDocument) return true;
+      showNotice("data-notice", "Bitte zuerst bei Firebase anmelden.", true);
+      setSyncStatus("Anmeldung erforderlich", "local");
+      return false;
+    }
+
+    function handleSyncError(error) {
+      console.warn("Firebase-Synchronisierung fehlgeschlagen.", error);
+      setSyncStatus("Offline / Sync fehlgeschlagen", "error");
+    }
+
+    function setSyncStatus(message, state = "local") {
+      const status = document.getElementById("sync-status");
+      const headerStatus = document.getElementById("header-sync-status");
+      if (status) {
+        status.textContent = message;
+        status.dataset.state = state;
+      }
+      if (headerStatus) headerStatus.textContent = message;
+    }
+
+    function updateFirebaseAuthUI(user) {
+      const form = document.getElementById("firebase-login-form");
+      const info = document.getElementById("firebase-auth-info");
+      const userLabel = document.getElementById("firebase-user");
+      if (!form || !info || !userLabel) return;
+      form.hidden = Boolean(user);
+      info.hidden = !user;
+      userLabel.textContent = user ? `Angemeldet als ${user.email || user.uid}` : "";
+    }
+
+    function updateSyncControls() {
+      const configured = firebaseIsConfigured();
+      const cloudAvailable = configured && Boolean(currentFirebaseUser);
+      ["sync-now", "cloud-load", "cloud-overwrite", "cloud-delete"].forEach(id => {
+        const button = document.getElementById(id);
+        if (button) button.disabled = !cloudAvailable;
+      });
+      const loginButton = document.getElementById("firebase-login");
+      if (loginButton) loginButton.disabled = !configured;
+      const hint = document.getElementById("firebase-auth-hint");
+      if (hint && !configured) {
+        hint.textContent = "Trage zuerst die Firebase Web Config in index.html ein.";
+      }
     }
 
     function getDayDraft(dayKey) {
@@ -1878,7 +2413,7 @@
 
     // --- Export, Import und Löschen ------------------------------------------
     function exportData() {
-      saveData();
+      saveLocalCache();
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -1899,7 +2434,7 @@
 
       try {
         const parsed = JSON.parse(await file.text());
-        if (!parsed || Number(parsed.version) !== 1 ||
+        if (!parsed || ![1, 2].includes(Number(parsed.version)) ||
             !Array.isArray(parsed.workouts) || !Array.isArray(parsed.bodyweight) ||
             !parsed.draftWorkout || typeof parsed.draftWorkout !== "object") {
           throw new Error("Ungültige Datenstruktur");
@@ -1921,11 +2456,16 @@
     }
 
     function deleteAllData() {
-      if (!window.confirm("Wirklich alle Workouts, Gewichte und Entwürfe löschen?")) return;
+      if (!window.confirm(
+        "Wirklich nur die lokalen Daten auf diesem Gerät löschen? Cloud-Daten bleiben erhalten."
+      )) return;
+      clearTimeout(syncTimer);
+      syncTimer = null;
+      unsyncedChanges = false;
       data = emptyData();
-      saveData();
+      saveLocalCache();
       renderAll();
-      showNotice("data-notice", "Alle Daten wurden gelöscht.");
+      showNotice("data-notice", "Lokale Daten wurden gelöscht. Cloud-Daten bleiben erhalten.");
     }
 
     function reloadExcelData() {
@@ -2044,14 +2584,34 @@
     document.getElementById("import-data").addEventListener("change", importData);
     document.getElementById("reload-excel-data").addEventListener("click", reloadExcelData);
     document.getElementById("delete-data").addEventListener("click", deleteAllData);
+    document.getElementById("firebase-login-form").addEventListener("submit", loginToFirebase);
+    document.getElementById("firebase-logout").addEventListener("click", logoutFromFirebase);
+    document.getElementById("sync-now").addEventListener("click", pushDataToCloud);
+    document.getElementById("cloud-load").addEventListener("click", loadCloudDataManually);
+    document.getElementById("cloud-overwrite").addEventListener("click", overwriteCloudData);
+    document.getElementById("cloud-delete").addEventListener("click", deleteCloudData);
     window.addEventListener("resize", () => {
       if (activeView === "analytics") renderAnalytics();
       if (activeView === "bodyweight") renderBodyweight();
+    });
+    window.addEventListener("offline", () => {
+      if (firebaseIsConfigured()) setSyncStatus("Offline / Sync fehlgeschlagen", "error");
+    });
+    window.addEventListener("online", () => {
+      if (unsyncedChanges) scheduleCloudSync();
+      else if (currentFirebaseUser) setSyncStatus("Verbindung wird wiederhergestellt …", "pending");
+    });
+    window.addEventListener("pagehide", () => {
+      // Den Debounce beim Schließen vorziehen. Firestore legt den Schreibvorgang
+      // sofort im persistenten Cache ab und sendet ihn beim nächsten Online-Kontakt.
+      if (unsyncedChanges && syncReady && !cloudWriteInProgress) pushDataToCloud();
     });
     document.addEventListener("pointerdown", clearTouchChartTooltips);
 
     document.getElementById("bodyweight-date").value = localDateString(new Date());
     renderAll();
+    updateSyncControls();
+    initializeFirebaseSync();
   </script>
 </body>
 </html>
