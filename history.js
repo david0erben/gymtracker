@@ -1,6 +1,7 @@
 /* Chronologische Workout-Historie mit Satzbearbeitung und sicherem Löschen. */
 
 import {
+  TRAINING_PLAN,
   confirmDestructiveAction,
   formatDate,
   formatNumber,
@@ -10,22 +11,46 @@ import {
 import { getData, saveData } from "./storage.js";
 
 let dataChangedCallback = () => {};
+let selectedTrainingDay = "all";
 
 export function initializeHistory(onDataChanged = () => {}) {
   dataChangedCallback = onDataChanged;
+  const filter = document.getElementById("history-day-filter");
+  filter.replaceChildren();
+  filter.append(createFilterOption("all", "Alle Trainings"));
+  Object.entries(TRAINING_PLAN).forEach(([dayKey, day]) => {
+    filter.append(createFilterOption(dayKey, day.label));
+  });
+  filter.value = selectedTrainingDay;
+  filter.addEventListener("change", event => {
+    selectedTrainingDay = event.currentTarget.value;
+    renderHistory();
+  });
 }
 
 export function renderHistory() {
   const data = getData();
   const list = document.getElementById("workout-history-list");
   const empty = document.getElementById("workout-history-empty");
-  const workouts = [...data.workouts].sort((a, b) =>
-    workoutTimestamp(b) - workoutTimestamp(a)
-  );
+  const workouts = data.workouts
+    .filter(workout =>
+      selectedTrainingDay === "all" || workout.trainingDay === selectedTrainingDay
+    )
+    .sort((a, b) => workoutTimestamp(b) - workoutTimestamp(a));
 
   list.replaceChildren();
   empty.hidden = workouts.length > 0;
+  empty.textContent = selectedTrainingDay === "all"
+    ? "Noch keine abgeschlossenen Trainings vorhanden."
+    : "Für diesen Trainingstag sind noch keine Trainings vorhanden.";
   workouts.forEach(workout => list.append(createWorkoutCard(workout)));
+}
+
+function createFilterOption(value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  return option;
 }
 
 function createWorkoutCard(workout) {

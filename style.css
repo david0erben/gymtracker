@@ -178,8 +178,8 @@ main { padding: 22px 14px calc(42px + env(safe-area-inset-bottom)); }
 
 .set-header, .set-row {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 32px;
+  gap: 6px;
   align-items: center;
 }
 
@@ -212,6 +212,29 @@ main { padding: 22px 14px calc(42px + env(safe-area-inset-bottom)); }
 }
 
 .set-input:focus { border-color: var(--primary); background: #fff; }
+.set-input[aria-invalid="true"] {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.remove-set,
+.remove-set-placeholder {
+  width: 32px;
+  height: 38px;
+}
+
+.remove-set {
+  display: grid;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
 .add-set {
   margin-top: 11px;
   padding: 7px 9px;
@@ -335,6 +358,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
 .history-list {
   display: grid;
   min-width: 0;
+  margin-top: 14px;
   gap: 14px;
 }
 

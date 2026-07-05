@@ -19,6 +19,7 @@ import { clearTouchChartTooltips } from "./charts.js";
 
 let activeView = "training";
 let analyticsRefreshTimer = null;
+let trainingRenderDeferred = false;
 
 function switchView(viewName) {
   activeView = viewName;
@@ -31,6 +32,7 @@ function switchView(viewName) {
     view.classList.toggle("active", view.id === `view-${viewName}`);
   });
 
+  if (viewName === "training") renderTrainingSafely();
   if (viewName === "history") renderHistory();
   if (viewName === "analytics") renderAnalytics();
   if (viewName === "bodyweight") renderBodyweight();
@@ -39,11 +41,23 @@ function switchView(viewName) {
 }
 
 function renderAll() {
-  renderTraining();
+  renderTrainingSafely();
   if (activeView === "history") renderHistory();
   if (activeView === "analytics") renderAnalytics();
   renderBodyweight();
   updateDataSummary();
+}
+
+function renderTrainingSafely() {
+  const activeInput = document.activeElement;
+  const isEnteringSet = activeView === "training" &&
+    activeInput?.matches("#workout-list .set-input");
+  if (isEnteringSet) {
+    trainingRenderDeferred = true;
+    return;
+  }
+  trainingRenderDeferred = false;
+  renderTraining();
 }
 
 async function initializeApp() {
@@ -59,6 +73,12 @@ async function initializeApp() {
 
   document.querySelectorAll(".nav-button").forEach(button => {
     button.addEventListener("click", () => switchView(button.dataset.view));
+  });
+  document.addEventListener("focusout", event => {
+    if (!event.target.matches("#workout-list .set-input")) return;
+    setTimeout(() => {
+      if (trainingRenderDeferred && activeView === "training") renderTrainingSafely();
+    }, 0);
   });
   window.addEventListener("resize", () => {
     if (activeView === "analytics") renderAnalytics();

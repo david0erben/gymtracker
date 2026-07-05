@@ -98,11 +98,23 @@ export function getDayDraft(dayKey) {
       draft.exercises[name].push(emptySet());
     }
     draft.exercises[name] = draft.exercises[name].map(set => ({
-      reps: set && set.reps != null ? String(set.reps) : "",
-      weight: set && set.weight != null ? String(set.weight) : ""
+      reps: normalizeDraftReps(set && set.reps),
+      weight: normalizeDraftWeight(set && set.weight)
     }));
   });
   return draft;
+}
+
+function normalizeDraftReps(value) {
+  if (value === "" || value == null) return "";
+  const reps = Number(value);
+  return Number.isFinite(reps) ? reps : "";
+}
+
+function normalizeDraftWeight(value) {
+  if (value === "" || value == null) return "";
+  const weight = Number(String(value).replace(",", "."));
+  return Number.isFinite(weight) ? weight : "";
 }
 
 export function saveData() {

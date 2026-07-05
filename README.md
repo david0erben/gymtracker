@@ -5,11 +5,11 @@ statische Website auf GitHub Pages und synchronisiert Daten über Firebase.
 
 ## Funktionen
 
-- Fester Trainingsplan mit Ziel-Sätzen und Wiederholungsbereichen
+- Fester Trainingsplan mit Ziel-Sätzen, Dezimalgewichten und löschbaren Zusatzsätzen
 - Firebase Authentication mit dauerhafter Anmeldung
 - Automatische Synchronisierung über Cloud Firestore
 - Lokaler Cache und Firestore Offline Persistence
-- Chronologische Workout-Historie mit Bearbeiten und sicherem Löschen
+- Filterbare Workout-Historie mit Bearbeiten und sicherem Löschen
 - Trainingsauswertung mit interaktiven Canvas-Diagrammen
 - Körpergewichtsverlauf mit deutscher Dezimaleingabe
 - JSON-Export und -Import
