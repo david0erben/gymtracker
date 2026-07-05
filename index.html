@@ -19,6 +19,7 @@
       </div>
       <nav class="nav" aria-label="Hauptnavigation">
         <button class="nav-button active" type="button" data-view="training">Training</button>
+        <button class="nav-button" type="button" data-view="history">Historie</button>
         <button class="nav-button" type="button" data-view="analytics">Auswertung</button>
         <button class="nav-button" type="button" data-view="bodyweight">Körpergewicht</button>
         <button class="nav-button" type="button" data-view="data">Daten</button>
@@ -45,6 +46,18 @@
       <button class="primary-button finish-button" id="finish-workout" type="button">Workout abschließen</button>
     </section>
 
+    <section class="view" id="view-history">
+      <div class="page-heading">
+        <h2>Historie</h2>
+        <p>Alle absolvierten Trainings mit sämtlichen Sätzen.</p>
+      </div>
+      <div id="history-notice" class="notice" role="status"></div>
+      <div id="workout-history-empty" class="card empty-state" hidden>
+        Noch keine abgeschlossenen Trainings vorhanden.
+      </div>
+      <div class="history-list" id="workout-history-list"></div>
+    </section>
+
     <section class="view" id="view-analytics">
       <div class="page-heading">
         <h2>Auswertung</h2>
@@ -53,24 +66,13 @@
       <div class="card">
         <label class="field-label" for="exercise-select">Übung auswählen</label>
         <select class="select" id="exercise-select"></select>
-        <div class="view-switch" role="group" aria-label="Tabellenansicht">
-          <button class="active" type="button" data-analytics-mode="best" aria-pressed="true">Bester Satz</button>
-          <button type="button" data-analytics-mode="all" aria-pressed="false">Alle Sätze</button>
-        </div>
       </div>
       <div id="analytics-empty" class="card empty-state" hidden>
         Für diese Übung sind noch keine abgeschlossenen Einheiten vorhanden.
       </div>
       <div class="analytics-grid" id="analytics-content">
-        <div class="card table-card">
+        <div class="card analytics-stats-card">
           <div class="stats" id="exercise-stats"></div>
-          <h3 id="history-title">Letzte Einheiten · bester Satz</h3>
-          <div class="table-scroll">
-            <table>
-              <thead id="history-head"></thead>
-              <tbody id="history-table"></tbody>
-            </table>
-          </div>
         </div>
         <div class="card chart-card">
           <h3>Geschätztes 1RM</h3>
@@ -103,7 +105,7 @@
             </div>
             <div>
               <label class="field-label" for="bodyweight-value">Körpergewicht in kg</label>
-              <input class="number-input" id="bodyweight-value" type="number" inputmode="decimal" min="1" step="0.1" placeholder="z. B. 82,5" required>
+              <input class="number-input" id="bodyweight-value" type="text" inputmode="decimal" autocomplete="off" placeholder="z. B. 82,5" required>
             </div>
             <button class="primary-button" type="submit">Eintrag speichern</button>
           </form>
@@ -181,6 +183,17 @@
       </div>
     </section>
   </main>
+
+  <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-dialog-title">
+    <form method="dialog">
+      <h2 id="confirm-dialog-title">Löschen bestätigen</h2>
+      <p id="confirm-dialog-message"></p>
+      <div class="confirm-dialog-actions">
+        <button class="secondary-button" value="cancel" type="submit">Abbrechen</button>
+        <button class="danger-button" value="confirm" type="submit">Löschen</button>
+      </div>
+    </form>
+  </dialog>
 
   <script type="module" src="app.js"></script>
 </body>

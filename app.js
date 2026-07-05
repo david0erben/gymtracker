@@ -12,11 +12,13 @@ import {
   updateDataSummary
 } from "./storage.js";
 import { initializeTraining, renderTraining } from "./training.js";
+import { initializeHistory, renderHistory } from "./history.js";
 import { initializeAnalytics, renderAnalytics } from "./analytics.js";
 import { initializeBodyweight, renderBodyweight } from "./bodyweight.js";
 import { clearTouchChartTooltips } from "./charts.js";
 
 let activeView = "training";
+let analyticsRefreshTimer = null;
 
 function switchView(viewName) {
   activeView = viewName;
@@ -29,6 +31,7 @@ function switchView(viewName) {
     view.classList.toggle("active", view.id === `view-${viewName}`);
   });
 
+  if (viewName === "history") renderHistory();
   if (viewName === "analytics") renderAnalytics();
   if (viewName === "bodyweight") renderBodyweight();
   if (viewName === "data") updateDataSummary();
@@ -37,6 +40,7 @@ function switchView(viewName) {
 
 function renderAll() {
   renderTraining();
+  if (activeView === "history") renderHistory();
   if (activeView === "analytics") renderAnalytics();
   renderBodyweight();
   updateDataSummary();
@@ -44,6 +48,10 @@ function renderAll() {
 
 async function initializeApp() {
   initializeTraining();
+  initializeHistory(() => {
+    clearTimeout(analyticsRefreshTimer);
+    analyticsRefreshTimer = setTimeout(renderAnalytics, 120);
+  });
   initializeAnalytics();
   initializeBodyweight();
   initializeStorage();

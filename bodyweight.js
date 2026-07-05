@@ -1,6 +1,14 @@
-/* Körpergewichtseingabe, Verlaufsliste und zugehöriges Diagramm. */
+/* Körpergewichtseingabe, bestätigtes Löschen, Verlaufsliste und Diagramm. */
 
-import { createId, formatDate, formatKg, localDateString, showNotice } from "./utils.js";
+import {
+  confirmDestructiveAction,
+  createId,
+  formatDate,
+  formatKg,
+  localDateString,
+  parseLocalizedDecimal,
+  showNotice
+} from "./utils.js";
 import { getData, saveData } from "./storage.js";
 import { drawLineChart } from "./charts.js";
 
@@ -34,10 +42,15 @@ export function renderBodyweight() {
     remove.textContent = "×";
     remove.title = `Eintrag vom ${formatDate(entry.date)} löschen`;
     remove.setAttribute("aria-label", remove.title);
-    remove.addEventListener("click", () => {
+    remove.addEventListener("click", async () => {
+      const confirmed = await confirmDestructiveAction(
+        "Körpergewichtseintrag wirklich löschen?"
+      );
+      if (!confirmed) return;
       data.bodyweight = data.bodyweight.filter(item => item.id !== entry.id);
       saveData();
       renderBodyweight();
+      showNotice("bodyweight-notice", "Körpergewichtseintrag gelöscht.");
     });
     item.append(text, remove);
     list.append(item);
@@ -56,8 +69,8 @@ function saveBodyweight(event) {
   const data = getData();
   const dateInput = document.getElementById("bodyweight-date");
   const weightInput = document.getElementById("bodyweight-value");
-  const weight = Number(weightInput.value);
-  if (!dateInput.value || !Number.isFinite(weight) || weight <= 0) {
+  const weight = parseLocalizedDecimal(weightInput.value);
+  if (!dateInput.value || weight === null || weight <= 0) {
     showNotice("bodyweight-notice", "Bitte gib ein gültiges Datum und Gewicht ein.", true);
     return;
   }

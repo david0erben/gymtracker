@@ -9,8 +9,9 @@ statische Website auf GitHub Pages und synchronisiert Daten über Firebase.
 - Firebase Authentication mit dauerhafter Anmeldung
 - Automatische Synchronisierung über Cloud Firestore
 - Lokaler Cache und Firestore Offline Persistence
+- Chronologische Workout-Historie mit Bearbeiten und sicherem Löschen
 - Trainingsauswertung mit interaktiven Canvas-Diagrammen
-- Körpergewichtsverlauf
+- Körpergewichtsverlauf mit deutscher Dezimaleingabe
 - JSON-Export und -Import
 - Kein eigener Server und kein Build-Schritt
 
@@ -43,6 +44,7 @@ Repository.
 - `auth.js` – Login, Logout, Sitzung und Auth-State-Listener
 - `storage.js` – lokaler Cache, Firestore-Sync und JSON-Backups
 - `training.js` – Trainingseingabe, Übungen, Sätze und Workout-Abschluss
+- `history.js` – Workout-Historie, Satzbearbeitung und Löschen
 - `analytics.js` – Trainingsstatistiken, Volumen und 1RM-Berechnungen
 - `charts.js` – Canvas-Diagramme, Hover und Tooltips
 - `bodyweight.js` – Körpergewichtseingabe und Verlauf

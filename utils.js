@@ -128,3 +128,50 @@ export function formatNumber(value) {
 export function formatKg(value) {
   return `${formatNumber(value)} kg`;
 }
+
+export function parseLocalizedDecimal(value) {
+  const input = String(value ?? "").trim();
+  if (!/^(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(input)) return null;
+  const parsed = Number(input.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function confirmDestructiveAction(message) {
+  const dialog = document.getElementById("confirm-dialog");
+  const messageElement = document.getElementById("confirm-dialog-message");
+  if (!dialog || typeof dialog.showModal !== "function") {
+    return Promise.resolve(window.confirm(message));
+  }
+
+  if (dialog.open) dialog.close("cancel");
+  messageElement.textContent = message;
+  dialog.returnValue = "cancel";
+
+  return new Promise(resolve => {
+    const form = dialog.querySelector("form");
+    let settled = false;
+    const finish = confirmed => {
+      if (settled) return;
+      settled = true;
+      form.removeEventListener("submit", handleSubmit);
+      dialog.removeEventListener("cancel", handleCancel);
+      dialog.removeEventListener("close", handleClose);
+      if (dialog.open) dialog.close(confirmed ? "confirm" : "cancel");
+      resolve(confirmed);
+    };
+    const handleSubmit = event => {
+      event.preventDefault();
+      finish(event.submitter?.value === "confirm");
+    };
+    const handleCancel = event => {
+      event.preventDefault();
+      finish(false);
+    };
+    const handleClose = () => finish(false);
+
+    form.addEventListener("submit", handleSubmit);
+    dialog.addEventListener("cancel", handleCancel);
+    dialog.addEventListener("close", handleClose);
+    dialog.showModal();
+  });
+}
