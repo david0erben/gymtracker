@@ -70,6 +70,10 @@
       <div class="card">
         <label class="field-label" for="exercise-select">Übung auswählen</label>
         <select class="select" id="exercise-select"></select>
+        <div class="view-switch" role="group" aria-label="Auswertungsansicht">
+          <button class="active" type="button" data-analytics-mode="best" aria-pressed="true">Bester Satz</button>
+          <button type="button" data-analytics-mode="all" aria-pressed="false">Alle Sätze</button>
+        </div>
       </div>
       <div id="analytics-empty" class="card empty-state" hidden>
         Für diese Übung sind noch keine abgeschlossenen Einheiten vorhanden.
@@ -89,6 +93,15 @@
           <div class="chart-wrap">
             <canvas id="volume-chart" aria-label="Liniendiagramm des Gesamtvolumens"></canvas>
           </div>
+        </div>
+      </div>
+      <div class="card analytics-table-card" id="analytics-all-sets" hidden>
+        <h3>Letzte Einheiten · alle Sätze</h3>
+        <div class="table-scroll">
+          <table class="sets-table">
+            <thead id="all-sets-head"></thead>
+            <tbody id="all-sets-body"></tbody>
+          </table>
         </div>
       </div>
     </section>

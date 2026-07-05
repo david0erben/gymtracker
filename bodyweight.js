@@ -3,6 +3,7 @@
 import {
   confirmDestructiveAction,
   createId,
+  formatCompactDate,
   formatDate,
   formatKg,
   localDateString,
@@ -31,9 +32,16 @@ export function renderBodyweight() {
     const value = document.createElement("div");
     value.className = "weight-value";
     value.textContent = formatKg(entry.weight);
-    const date = document.createElement("div");
+    const date = document.createElement("time");
     date.className = "weight-date";
-    date.textContent = formatDate(entry.date);
+    date.dateTime = entry.date;
+    const longDate = document.createElement("span");
+    longDate.className = "weight-date-long";
+    longDate.textContent = formatDate(entry.date);
+    const compactDate = document.createElement("span");
+    compactDate.className = "weight-date-compact";
+    compactDate.textContent = formatCompactDate(entry.date);
+    date.append(longDate, compactDate);
     text.append(value, date);
 
     const remove = document.createElement("button");

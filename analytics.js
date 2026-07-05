@@ -1,24 +1,48 @@
 /* Reine Analyseansicht mit Bestleistungen, Volumen und 1RM-Verlauf. */
 
-import { ALL_EXERCISE_NAMES, formatKg, formatNumber } from "./utils.js";
+import {
+  ALL_EXERCISE_NAMES,
+  formatDate,
+  formatKg,
+  formatNumber
+} from "./utils.js";
 import { getData } from "./storage.js";
 import { drawLineChart } from "./charts.js";
 
+let analyticsMode = "best";
+
 export function initializeAnalytics() {
   document.getElementById("exercise-select").addEventListener("change", renderAnalytics);
+  document.querySelectorAll("[data-analytics-mode]").forEach(button => {
+    button.addEventListener("click", () => {
+      analyticsMode = button.dataset.analyticsMode;
+      renderAnalytics();
+    });
+  });
 }
 
 export function renderAnalytics() {
   renderExerciseOptions();
   const selected = document.getElementById("exercise-select").value || ALL_EXERCISE_NAMES[0];
   const history = exerciseHistory(selected);
+  document.querySelectorAll("[data-analytics-mode]").forEach(button => {
+    const active = button.dataset.analyticsMode === analyticsMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 
   const empty = document.getElementById("analytics-empty");
   const content = document.getElementById("analytics-content");
+  const allSets = document.getElementById("analytics-all-sets");
   const hasData = history.length > 0;
   empty.hidden = hasData;
-  content.hidden = !hasData;
+  content.hidden = !hasData || analyticsMode !== "best";
+  allSets.hidden = !hasData || analyticsMode !== "all";
   if (!hasData) return;
+  if (analyticsMode === "all") {
+    renderAllSetsTable(history);
+    return;
+  }
 
   const bestE1rm = Math.max(...history.map(item => item.e1rm));
   const bestVolume = Math.max(...history.map(item => item.volume));
@@ -95,6 +119,47 @@ function renderExerciseOptions() {
     select.append(option);
   });
   if (ALL_EXERCISE_NAMES.includes(current)) select.value = current;
+}
+
+function renderAllSetsTable(history) {
+  const head = document.getElementById("all-sets-head");
+  const body = document.getElementById("all-sets-body");
+  const maxSets = Math.max(...history.map(item => item.sets.length));
+  head.replaceChildren();
+  body.replaceChildren();
+
+  const headerRow = document.createElement("tr");
+  ["Datum", ...Array.from(
+    { length: maxSets },
+    (_, index) => `Satz ${index + 1}`
+  ), "Gesamtvolumen"].forEach(label => {
+    const cell = document.createElement("th");
+    cell.scope = "col";
+    cell.textContent = label;
+    headerRow.append(cell);
+  });
+  head.append(headerRow);
+
+  [...history].reverse().forEach(item => {
+    const row = document.createElement("tr");
+    const values = [
+      formatDate(item.date),
+      ...Array.from({ length: maxSets }, (_, index) =>
+        item.sets[index] ? formatSet(item.sets[index]) : "–"
+      ),
+      `${formatNumber(item.volume)} kg`
+    ];
+    values.forEach(value => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.append(cell);
+    });
+    body.append(row);
+  });
+}
+
+function formatSet(set) {
+  return `${formatNumber(set.reps)} × ${formatNumber(set.weight)} kg`;
 }
 
 function statElement(value, label) {

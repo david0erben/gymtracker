@@ -10,7 +10,7 @@ statische Website auf GitHub Pages und synchronisiert Daten über Firebase.
 - Automatische Synchronisierung über Cloud Firestore
 - Lokaler Cache und Firestore Offline Persistence
 - Filterbare Workout-Historie mit Bearbeiten und sicherem Löschen
-- Trainingsauswertung mit interaktiven Canvas-Diagrammen
+- Trainingsauswertung mit interaktiven Diagrammen und Alle-Sätze-Tabelle
 - Körpergewichtsverlauf mit deutscher Dezimaleingabe
 - JSON-Export und -Import
 - Kein eigener Server und kein Build-Schritt

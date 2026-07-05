@@ -111,6 +111,15 @@ export function formatDate(value) {
       }).format(date);
 }
 
+export function formatCompactDate(value) {
+  const date = parseLocalDate(value);
+  return Number.isNaN(date.getTime())
+    ? String(value || "–")
+    : new Intl.DateTimeFormat("de-DE", {
+        day: "2-digit", month: "2-digit", year: "2-digit"
+      }).format(date);
+}
+
 export function formatShortDate(value) {
   const date = parseLocalDate(value);
   return Number.isNaN(date.getTime())
