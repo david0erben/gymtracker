@@ -6,6 +6,7 @@ import {
   TRAINING_PLAN,
   createId,
   localDateString,
+  parseLocalDate,
   showNotice
 } from "./utils.js";
 
@@ -83,6 +84,35 @@ export function emptySet() {
   return { reps: "", weight: "" };
 }
 
+export function getLastExerciseSets(exerciseName, currentWorkoutDate) {
+  const targetName = String(exerciseName || "").trim();
+  if (!targetName) return [];
+
+  const latestAllowedTimestamp = currentWorkoutDate
+    ? endOfDayTimestamp(currentWorkoutDate)
+    : Number.POSITIVE_INFINITY;
+
+  const lastWorkout = [...data.workouts]
+    .filter(workout =>
+      workout &&
+      Array.isArray(workout.exercises) &&
+      workoutTimestamp(workout) <= latestAllowedTimestamp
+    )
+    .sort((a, b) => workoutTimestamp(b) - workoutTimestamp(a))
+    .find(workout => {
+      const exercise = workout.exercises.find(item => item && item.name === targetName);
+      return exercise && Array.isArray(exercise.sets) && exercise.sets.some(hasUsableSetValue);
+    });
+
+  const lastExercise = lastWorkout?.exercises.find(item => item && item.name === targetName);
+  if (!lastExercise || !Array.isArray(lastExercise.sets)) return [];
+
+  return lastExercise.sets.map(set => ({
+    reps: normalizePreviousReps(set && set.reps),
+    weight: normalizePreviousWeight(set && set.weight)
+  }));
+}
+
 export function getDayDraft(dayKey) {
   if (!data.draftWorkout.days[dayKey]) {
     data.draftWorkout.days[dayKey] = { exercises: {} };
@@ -115,6 +145,34 @@ function normalizeDraftWeight(value) {
   if (value === "" || value == null) return "";
   const weight = Number(String(value).replace(",", "."));
   return Number.isFinite(weight) ? weight : "";
+}
+
+function hasUsableSetValue(set) {
+  return normalizePreviousReps(set && set.reps) !== null ||
+    normalizePreviousWeight(set && set.weight) !== null;
+}
+
+function normalizePreviousReps(value) {
+  const reps = Number(value);
+  return Number.isInteger(reps) && reps > 0 ? reps : null;
+}
+
+function normalizePreviousWeight(value) {
+  const weight = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(weight) && weight > 0 ? weight : null;
+}
+
+function workoutTimestamp(workout) {
+  const completedAt = new Date(workout.completedAt || `${workout.date}T12:00:00`);
+  const timestamp = completedAt.getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function endOfDayTimestamp(value) {
+  const date = value instanceof Date ? new Date(value) : parseLocalDate(value);
+  if (!Number.isFinite(date.getTime())) return Number.POSITIVE_INFINITY;
+  date.setHours(23, 59, 59, 999);
+  return date.getTime();
 }
 
 export function saveData() {

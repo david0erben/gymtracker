@@ -8,7 +8,13 @@ import {
   parseLocalizedDecimal,
   showNotice
 } from "./utils.js";
-import { emptySet, getData, getDayDraft, saveData } from "./storage.js";
+import {
+  emptySet,
+  getData,
+  getDayDraft,
+  getLastExerciseSets,
+  saveData
+} from "./storage.js";
 
 const TRAINING_AUTOSAVE_DELAY = 350;
 let trainingAutosaveTimer = null;
@@ -55,6 +61,7 @@ function renderWorkout() {
 
   plan.exercises.forEach((exercise, exerciseIndex) => {
     const exerciseName = exercise.name;
+    const previousSets = getLastExerciseSets(exerciseName);
     const card = document.createElement("article");
     card.className = "exercise-card";
     card.dataset.exerciseIndex = exerciseIndex;
@@ -85,7 +92,8 @@ function renderWorkout() {
         exerciseIndex,
         setIndex,
         set,
-        exercise.targetSets
+        exercise.targetSets,
+        previousSets[setIndex]
       ));
     });
 
@@ -123,7 +131,14 @@ function formatTrainingTarget(exercise) {
   return `${setLabel} · ${range.min}–${range.max} Reps`;
 }
 
-function createSetRow(exerciseName, exerciseIndex, setIndex, set, targetSets) {
+function createSetRow(
+  exerciseName,
+  exerciseIndex,
+  setIndex,
+  set,
+  targetSets,
+  previousSet
+) {
   const row = document.createElement("div");
   row.className = "set-row";
   const number = document.createElement("span");
@@ -135,7 +150,7 @@ function createSetRow(exerciseName, exerciseIndex, setIndex, set, targetSets) {
   reps.type = "text";
   reps.inputMode = "numeric";
   reps.pattern = "[0-9]*";
-  reps.placeholder = "0";
+  reps.placeholder = previousRepsPlaceholder(previousSet);
   reps.value = set.reps == null ? "" : String(set.reps);
   if (reps.value !== "" && (!Number.isInteger(Number(reps.value)) || Number(reps.value) <= 0)) {
     reps.setAttribute("aria-invalid", "true");
@@ -146,7 +161,7 @@ function createSetRow(exerciseName, exerciseIndex, setIndex, set, targetSets) {
   weight.className = "set-input";
   weight.type = "text";
   weight.inputMode = "decimal";
-  weight.placeholder = "0,0";
+  weight.placeholder = previousWeightPlaceholder(previousSet);
   weight.value = editableWeight(set.weight);
   if (weight.value !== "" && Number(set.weight) <= 0) {
     weight.setAttribute("aria-invalid", "true");
@@ -340,4 +355,12 @@ function editableWeight(value) {
   if (value == null || value === "") return "";
   const weight = Number(value);
   return Number.isFinite(weight) ? formatNumber(weight) : "";
+}
+
+function previousRepsPlaceholder(previousSet) {
+  return previousSet?.reps == null ? "" : String(previousSet.reps);
+}
+
+function previousWeightPlaceholder(previousSet) {
+  return previousSet?.weight == null ? "" : formatNumber(previousSet.weight);
 }
