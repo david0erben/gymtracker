@@ -91,6 +91,13 @@ function createExerciseEditor(exercise) {
   section.className = "history-exercise";
   const title = document.createElement("h4");
   title.textContent = exercise.name;
+  if (exercise.skipped) {
+    const skippedNote = document.createElement("p");
+    skippedNote.className = "history-skipped-note";
+    skippedNote.textContent = "Bewusst ausgelassen";
+    section.append(title, skippedNote);
+    return section;
+  }
 
   const header = document.createElement("div");
   header.className = "history-set-row history-set-header";
@@ -101,7 +108,7 @@ function createExerciseEditor(exercise) {
   });
 
   const rows = document.createElement("div");
-  exercise.sets.forEach((set, setIndex) => {
+  (Array.isArray(exercise.sets) ? exercise.sets : []).forEach((set, setIndex) => {
     rows.append(createSetEditor(exercise, set, setIndex));
   });
   section.append(title, header, rows);

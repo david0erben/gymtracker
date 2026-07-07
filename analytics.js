@@ -78,7 +78,9 @@ export function renderAnalytics() {
 export function exerciseHistory(exerciseName) {
   return getData().workouts
     .map(workout => {
-      const exercise = workout.exercises.find(item => item.name === exerciseName);
+      const exercise = workout.exercises.find(item =>
+        item.name === exerciseName && !item.skipped
+      );
       if (!exercise || !Array.isArray(exercise.sets) || !exercise.sets.length) return null;
       const sets = exercise.sets
         .filter(set => set && (set.reps != null || set.weight != null))

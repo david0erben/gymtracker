@@ -299,7 +299,7 @@ function focusNextOnEnter(event) {
   else document.getElementById("finish-workout").focus();
 }
 
-function finishWorkout() {
+async function finishWorkout() {
   const invalidInput = document.querySelector("#workout-list .set-input[aria-invalid='true']");
   if (invalidInput) {
     showNotice(
@@ -314,27 +314,24 @@ function finishWorkout() {
   const data = getData();
   const dayKey = data.draftWorkout.selectedDay;
   const draft = getDayDraft(dayKey);
-  const exercises = [];
-  let enteredSetCount = 0;
+  const enteredSetCount = countEnteredSets(dayKey, draft);
 
-  TRAINING_PLAN[dayKey].exercises.forEach(({ name }) => {
-    const sets = draft.exercises[name]
-      .filter(set => set.reps !== "" || set.weight !== "")
-      .map(set => {
-        enteredSetCount += 1;
-        return {
-          reps: set.reps === "" ? null : Math.trunc(Number(set.reps)),
-          weight: set.weight === "" ? null : Number(set.weight)
-        };
-      });
-    if (sets.length) exercises.push({ name, sets });
-  });
-
-  if (!enteredSetCount) {
+  if (enteredSetCount === 0) {
     showNotice("training-notice", "Trage zuerst mindestens einen Satz ein.", true);
     return;
   }
 
+  const missingExerciseNames = missingPlannedExercises(dayKey, draft);
+  const confirmedSkippedNames = missingExerciseNames.length
+    ? await confirmMissingExercises(missingExerciseNames)
+    : [];
+  if (missingExerciseNames.length && !confirmedSkippedNames.length) return;
+
+  const exercises = buildWorkoutExercises(
+    dayKey,
+    draft,
+    new Set(confirmedSkippedNames)
+  );
   const now = new Date();
   data.workouts.push({
     id: createId(),
@@ -349,6 +346,155 @@ function finishWorkout() {
   saveTrainingNow();
   renderWorkout();
   showNotice("training-notice", "Workout gespeichert. Stark gemacht!");
+}
+
+function countEnteredSets(dayKey, draft) {
+  return TRAINING_PLAN[dayKey].exercises.reduce((count, { name }) =>
+    count + draft.exercises[name].filter(isEnteredSet).length, 0);
+}
+
+function missingPlannedExercises(dayKey, draft) {
+  return TRAINING_PLAN[dayKey].exercises
+    .map(exercise => exercise.name)
+    .filter(name =>
+      !draft.exercises[name].some(isEnteredSet) &&
+      !isDraftExerciseSkipped(draft, name) &&
+      !isDraftExerciseReplaced(draft, name)
+    );
+}
+
+function buildWorkoutExercises(dayKey, draft, confirmedSkippedNames) {
+  const exercises = [];
+  TRAINING_PLAN[dayKey].exercises.forEach(({ name }) => {
+    const sets = completedSets(draft.exercises[name]);
+    if (sets.length) {
+      exercises.push({ name, sets });
+      return;
+    }
+    if (isDraftExerciseSkipped(draft, name) || confirmedSkippedNames.has(name)) {
+      exercises.push({ name, skipped: true, sets: [] });
+    }
+  });
+  return exercises;
+}
+
+function completedSets(sets) {
+  return sets
+    .filter(isEnteredSet)
+    .map(set => ({
+      reps: set.reps === "" || set.reps == null ? null : Math.trunc(Number(set.reps)),
+      weight: set.weight === "" || set.weight == null ? null : Number(set.weight)
+    }));
+}
+
+function isEnteredSet(set) {
+  return Boolean(set) && (
+    (set.reps !== "" && set.reps != null) ||
+    (set.weight !== "" && set.weight != null)
+  );
+}
+
+function isDraftExerciseSkipped(draft, exerciseName) {
+  return Boolean(
+    hasExerciseMarker(draft.skippedExercises, exerciseName) ||
+    hasExerciseMarker(draft.skipped, exerciseName) ||
+    hasExerciseFlag(draft.exerciseStatus, exerciseName, "skipped") ||
+    hasExerciseFlag(draft.exerciseMeta, exerciseName, "skipped") ||
+    hasExerciseFlag(draft.exercisesMeta, exerciseName, "skipped") ||
+    hasExerciseFlag(draft.exercises, exerciseName, "skipped")
+  );
+}
+
+function isDraftExerciseReplaced(draft, exerciseName) {
+  return Boolean(
+    hasExerciseMarker(draft.replacedExercises, exerciseName) ||
+    hasExerciseMarker(draft.replacements, exerciseName) ||
+    hasExerciseMarker(draft.exerciseReplacements, exerciseName) ||
+    hasExerciseFlag(draft.exerciseStatus, exerciseName, "replaced") ||
+    hasExerciseFlag(draft.exerciseMeta, exerciseName, "replaced") ||
+    hasExerciseFlag(draft.exercisesMeta, exerciseName, "replaced") ||
+    hasExerciseFlag(draft.exercises, exerciseName, "replaced") ||
+    exerciseMetaValue(draft.exerciseStatus, exerciseName, "replacedBy") ||
+    exerciseMetaValue(draft.exerciseMeta, exerciseName, "replacedBy") ||
+    exerciseMetaValue(draft.exercisesMeta, exerciseName, "replacedBy") ||
+    exerciseMetaValue(draft.replacements, exerciseName, "name") ||
+    exerciseMetaValue(draft.replacements, exerciseName, "replacementName")
+  );
+}
+
+function hasExerciseMarker(collection, exerciseName) {
+  if (!collection) return false;
+  if (Array.isArray(collection)) {
+    return collection.some(item =>
+      item === exerciseName ||
+      item?.name === exerciseName ||
+      item?.exerciseName === exerciseName ||
+      item?.originalName === exerciseName
+    );
+  }
+  if (typeof collection === "object") {
+    return Boolean(collection[exerciseName]);
+  }
+  return false;
+}
+
+function hasExerciseFlag(collection, exerciseName, flagName) {
+  return exerciseMetaValue(collection, exerciseName, flagName) === true;
+}
+
+function exerciseMetaValue(collection, exerciseName, key) {
+  if (!collection || typeof collection !== "object") return undefined;
+  const meta = collection[exerciseName];
+  return meta && typeof meta === "object" ? meta[key] : undefined;
+}
+
+function confirmMissingExercises(exerciseNames) {
+  const dialog = document.getElementById("missing-exercises-dialog");
+  const list = document.getElementById("missing-exercises-list");
+  if (!dialog || !list || typeof dialog.showModal !== "function") {
+    showNotice(
+      "training-notice",
+      "Einige Übungen fehlen. Bitte prüfe dein Training vor dem Abschließen.",
+      true
+    );
+    return Promise.resolve([]);
+  }
+
+  if (dialog.open) dialog.close("back");
+  list.replaceChildren(...exerciseNames.map(name => {
+    const item = document.createElement("li");
+    item.textContent = name;
+    return item;
+  }));
+  dialog.returnValue = "back";
+
+  return new Promise(resolve => {
+    const form = dialog.querySelector("form");
+    let settled = false;
+    const finish = shouldFinishWorkout => {
+      if (settled) return;
+      settled = true;
+      form.removeEventListener("submit", handleSubmit);
+      dialog.removeEventListener("cancel", handleCancel);
+      dialog.removeEventListener("close", handleClose);
+      if (dialog.open) dialog.close(shouldFinishWorkout ? "finish" : "back");
+      resolve(shouldFinishWorkout ? exerciseNames : []);
+    };
+    const handleSubmit = event => {
+      event.preventDefault();
+      finish(event.submitter?.value === "finish");
+    };
+    const handleCancel = event => {
+      event.preventDefault();
+      finish(false);
+    };
+    const handleClose = () => finish(dialog.returnValue === "finish");
+
+    form.addEventListener("submit", handleSubmit);
+    dialog.addEventListener("cancel", handleCancel);
+    dialog.addEventListener("close", handleClose);
+    dialog.showModal();
+  });
 }
 
 function editableWeight(value) {

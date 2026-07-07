@@ -100,11 +100,15 @@ export function getLastExerciseSets(exerciseName, currentWorkoutDate) {
     )
     .sort((a, b) => workoutTimestamp(b) - workoutTimestamp(a))
     .find(workout => {
-      const exercise = workout.exercises.find(item => item && item.name === targetName);
+      const exercise = workout.exercises.find(item =>
+        item && item.name === targetName && !item.skipped
+      );
       return exercise && Array.isArray(exercise.sets) && exercise.sets.some(hasUsableSetValue);
     });
 
-  const lastExercise = lastWorkout?.exercises.find(item => item && item.name === targetName);
+  const lastExercise = lastWorkout?.exercises.find(item =>
+    item && item.name === targetName && !item.skipped
+  );
   if (!lastExercise || !Array.isArray(lastExercise.sets)) return [];
 
   return lastExercise.sets.map(set => ({

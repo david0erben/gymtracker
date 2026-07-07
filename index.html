@@ -212,6 +212,19 @@
     </form>
   </dialog>
 
+  <dialog class="confirm-dialog workout-warning-dialog" id="missing-exercises-dialog" aria-labelledby="missing-exercises-title">
+    <form method="dialog">
+      <h2 id="missing-exercises-title">Übungen fehlen</h2>
+      <p>Du hast folgende Übungen nicht eingetragen:</p>
+      <ul class="missing-exercises-list" id="missing-exercises-list"></ul>
+      <p>Ist das gewollt oder hast du sie vergessen?</p>
+      <div class="confirm-dialog-actions workout-warning-actions">
+        <button class="secondary-button" value="back" type="submit">Zurück zum Training</button>
+        <button class="primary-button" value="finish" type="submit">Bewusst ausgelassen und Workout abschließen</button>
+      </div>
+    </form>
+  </dialog>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>
