@@ -1,0 +1,197 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Montserrat Variable', 'Inter Variable', ui-sans-serif, sans-serif;
+
+  /* Farben per Pipette aus dem MCI-Screenshot: Schwarz #0F0F0F, Orange-Verlauf, grüner Haken */
+  --color-bg: #0f0f0f;
+  --color-surface: #151515;
+  --color-surface-2: #1b1b1b;
+  --color-ink: #f0f0f0;
+  --color-ink-2: #a3a3a3;
+  --color-ink-3: #767676;
+  --color-ink-4: #4a4a4a;
+  --color-line: #262626;
+  --color-line-2: #333333;
+  --color-glass: rgb(255 255 255 / 0.04);
+  --color-glass-2: rgb(255 255 255 / 0.07);
+  --color-glass-3: rgb(255 255 255 / 0.12);
+
+  --color-accent: #fe8c35;
+  --color-accent-2: #ffa30a;
+  --color-accent-3: #ffb870;
+  --color-accent-deep: #ff743e;
+  --color-on-accent: #0f0f0f;
+  --color-success: #18c152;
+  --color-danger: #ff4d42;
+
+  --radius-card: 1.25rem;
+  --shadow-glow: 0 10px 28px -12px rgb(254 140 53 / 0.55);
+}
+
+@layer base {
+  html {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--color-bg);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
+    overscroll-behavior-y: none;
+  }
+
+  button,
+  [role='button'] {
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  ::selection {
+    background: rgb(254 140 53 / 0.4);
+  }
+}
+
+@layer components {
+  /* Flacher, fast schwarzer Hintergrund */
+  .app-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: var(--color-bg);
+  }
+
+  .glass {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+  }
+
+  .glass-strong {
+    background: rgb(22 22 22 / 0.94);
+    border: 1px solid var(--color-line-2);
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+  }
+
+  .display {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Orange-Verlauf wie bei den Icons im MCI-Screenshot */
+  .accent-gradient {
+    background: linear-gradient(135deg, #ffa30a 0%, #fe8c35 50%, #ff743e 100%);
+    color: var(--color-on-accent);
+  }
+
+  .accent-text {
+    background: linear-gradient(135deg, #ffa30a 0%, #fe8c35 50%, #ff743e 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top), 0.75rem);
+  }
+
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Zahleneingabe ohne Browser-Pfeile */
+  .number-input {
+    background: transparent;
+    border: 0;
+    outline: none;
+    text-align: center;
+    width: 100%;
+    caret-color: var(--color-accent-2);
+  }
+  .number-input::placeholder {
+    color: var(--color-ink-4);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-pop-in {
+  animation: pop-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-sheet-up {
+  animation: sheet-up 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 200ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-in,
+  .animate-sheet-up,
+  .animate-fade-in {
+    animation: none;
+  }
+}

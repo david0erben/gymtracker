@@ -1,70 +1,47 @@
 # Gym Tracker
 
-Eine mobile-first Gym-Tracking-Web-App ohne Build-System. Sie läuft als
-statische Website auf GitHub Pages und synchronisiert Daten über Firebase.
+Trainings-App fürs Handy und den Mac: Sets eintragen, Empfehlungen fürs nächste Training,
+Auswertungen, Körpergewicht und Cardio. Läuft als Web-App (zum Home-Bildschirm hinzufügbar,
+offline nutzbar) und synchronisiert über Firebase.
+
+Live: https://david0erben.github.io/gymtracker/
 
 ## Funktionen
 
-- Fester Trainingsplan mit Ziel-Sätzen, Dezimalgewichten und löschbaren Zusatzsätzen
-- Firebase Authentication mit dauerhafter Anmeldung
-- Automatische Synchronisierung über Cloud Firestore
-- Lokaler Cache und Firestore Offline Persistence
-- Filterbare Workout-Historie mit Bearbeiten und sicherem Löschen
-- Trainingsauswertung mit interaktiven Diagrammen und Alle-Sätze-Tabelle
-- Körpergewichtsverlauf mit deutscher Dezimaleingabe
-- JSON-Export und -Import
-- Kein eigener Server und kein Build-Schritt
+- **Training** – Sets mit vorausgefüllter Empfehlung (doppelte Progression innerhalb deiner Rep-Range),
+  Eingabe per −/+ oder Ziffernfeld, Cardio-Tage (Laufen/Radfahren mit Pace)
+- **Verlauf** – Kalender (Monat/Jahr), Serien, Plantreue, alle Trainings bearbeiten
+- **Analyse** – Kraftentwicklung (geschätztes 1RM) und Volumen pro Muskel
+- **Körper** – Körpergewicht mit Verlauf
+- **Ziele** – Wochenvolumen, Einstellungen pro Übung, Trainingsziele, Gewichtsabstufungen
 
-## Firebase-Synchronisierung
+## Technik
 
-Die App kann Trainingsdaten über Firebase Authentication und Cloud Firestore
-zwischen Geräten synchronisieren. Ohne Firebase-Konfiguration funktioniert sie
-weiterhin vollständig mit dem lokalen Browser-Cache.
+React + TypeScript + Vite, Tailwind CSS, Recharts, Zustand, Firebase (Auth + Firestore mit
+Offline-Cache), vite-plugin-pwa. Die Empfehlungslogik liegt in `src/domain/` und ist mit Vitest getestet.
 
-Für die Einrichtung werden benötigt:
+Firestore-Aufbau unter `users/{uid}/`: `workouts/{id}`, `bodyweight/{id}`, `cardio/{id}`,
+`data/settings`, `data/session`, `data/meta`. Das Dokument `data/main` des alten Trackers bleibt als
+Backup erhalten und wird beim ersten Login automatisch übernommen.
 
-- eine registrierte Firebase Web-App
-- Cloud Firestore im Spark Plan
-- aktivierte E-Mail/Passwort-Authentifizierung
-- mindestens ein Firebase-Auth-Benutzer
-- Firestore Security Rules aus `firestore.rules`
-
-Die öffentliche Firebase Web Config liegt im markierten Block in `firebase.js`.
-Die Daten jedes angemeldeten Benutzers
-liegen unter `users/{uid}/data/main`; die UID kommt automatisch aus Firebase
-Authentication. Passwörter oder Service-Account-Keys gehören nicht in das
-Repository.
-
-## Projektstruktur
-
-- `index.html` – semantisches HTML, Navigation und Layout
-- `style.css` – vollständiges Styling
-- `app.js` – App-Start, Navigation und Verbindung der Module
-- `firebase.js` – Firebase-Konfiguration, Initialisierung und Offline Cache
-- `auth.js` – Login, Logout, Sitzung und Auth-State-Listener
-- `storage.js` – lokaler Cache, Firestore-Sync und JSON-Backups
-- `training.js` – Trainingseingabe, Übungen, Sätze und Workout-Abschluss
-- `history.js` – Workout-Historie, Satzbearbeitung und Löschen
-- `analytics.js` – Trainingsstatistiken, Volumen und 1RM-Berechnungen
-- `charts.js` – Canvas-Diagramme, Hover und Tooltips
-- `bodyweight.js` – Körpergewichtseingabe und Verlauf
-- `utils.js` – Trainingsplan, Datumsformatierung und Hilfsfunktionen
-
-Die JavaScript-Dateien verwenden native ES6-Module. Alle Datenzugriffe laufen
-über `storage.js`; die Feature-Module bleiben dadurch unabhängig von Firebase.
-
-## Nutzung
-
-Die veröffentlichte App kann direkt im Browser verwendet werden. Alle neu
-eingetragenen Daten werden zunächst lokal gespeichert und bei konfiguriertem
-Firebase automatisch synchronisiert. JSON-Export und -Import bleiben als
-zusätzliche Backup-Funktion erhalten.
-
-Für die lokale Entwicklung muss die App wegen der ES6-Module über einen
-statischen Webserver ausgeliefert werden, zum Beispiel:
+## Entwicklung
 
 ```sh
-python3 -m http.server 8000
+npm install
+npm run dev        # lokal mit Testdaten im Browser (ohne Cloud)
+npm test           # Tests der Empfehlungslogik
+npm run build      # Produktions-Build nach dist/
 ```
 
-Danach ist sie unter `http://localhost:8000` erreichbar.
+Mit Firebase-Emulator (benötigt Java 21):
+
+```sh
+firebase emulators:start --only auth,firestore
+node scripts/seed-emulator.mjs <backup.json>
+VITE_FIREBASE_EMULATOR=1 npx vite --port 5174
+```
+
+## Veröffentlichung
+
+Jeder Push auf `main` baut, testet und veröffentlicht die App über GitHub Actions auf GitHub Pages.
+Sicherheitsregeln: `firebase deploy --only firestore:rules`.

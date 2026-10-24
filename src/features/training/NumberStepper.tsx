@@ -1,0 +1,106 @@
+import { useEffect, useRef, useState } from 'react';
+import { Minus, Plus } from 'lucide-react';
+import { formatNumber, parseDecimal, parseInteger } from '../../domain/format';
+import { cx } from '../../components/ui';
+
+/**
+ * Wert mit − / + und direkter Eingabe: Zahl antippen öffnet das Ziffernfeld,
+ * der alte Wert ist markiert und wird beim Tippen ersetzt.
+ */
+export function NumberStepper({
+  label,
+  hint,
+  value,
+  onChange,
+  onIncrement,
+  onDecrement,
+  decimal = false,
+  placeholder = '–',
+}: {
+  label: string;
+  hint?: string;
+  value: number | null;
+  onChange: (value: number | null) => void;
+  onIncrement: () => void;
+  onDecrement: () => void;
+  decimal?: boolean;
+  placeholder?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [focused, setFocused] = useState(false);
+  const display = value === null ? '' : formatNumber(value);
+  const [text, setText] = useState(display);
+
+  useEffect(() => {
+    if (!focused) setText(display);
+  }, [display, focused]);
+
+  // Beim Antippen startet die Eingabe leer (alter Wert grau als Platzhalter) –
+  // zuverlässiger als Text markieren, das auf dem iPhone oft nicht greift.
+  const commit = (raw: string) => {
+    if (raw.trim() === '') return;
+    const parsed = decimal ? parseDecimal(raw) : parseInteger(raw);
+    if (parsed !== null) onChange(parsed);
+  };
+
+  return (
+    <div className="flex min-w-0 flex-col items-center">
+      <span className="display text-[13px] text-ink-2">{label}</span>
+      <div
+        className={cx(
+          'mt-1.5 flex h-12 w-full items-center rounded-2xl border bg-white/[0.04] transition',
+          focused ? 'border-accent/60 bg-accent/10' : 'border-line',
+        )}
+      >
+        <StepButton label={`${label} verringern`} onClick={onDecrement}>
+          <Minus size={16} strokeWidth={2.75} />
+        </StepButton>
+        <input
+          ref={inputRef}
+          aria-label={label}
+          inputMode={decimal ? 'decimal' : 'numeric'}
+          enterKeyHint="done"
+          autoComplete="off"
+          className="number-input tabular h-full min-w-0 flex-1 text-[19px] font-bold"
+          value={text}
+          placeholder={focused && display ? display : placeholder}
+          onFocus={() => {
+            setFocused(true);
+            setText('');
+          }}
+          onBlur={() => {
+            setFocused(false);
+            commit(text);
+          }}
+          onChange={(event) => {
+            const next = event.target.value.replace(/[^\d.,]/g, '');
+            setText(next);
+            commit(next);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.currentTarget.blur();
+          }}
+        />
+        <StepButton label={`${label} erhöhen`} onClick={onIncrement}>
+          <Plus size={16} strokeWidth={2.75} />
+        </StepButton>
+      </div>
+      {hint && <span className="mt-1 text-[11px] text-ink-3">{hint}</span>}
+    </div>
+  );
+}
+
+function StepButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      // verhindert, dass ein offenes Ziffernfeld beim Tippen auf +/− erst zuklappt
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onClick}
+      className="flex h-full w-7 shrink-0 items-center justify-center rounded-2xl text-ink-2 transition hover:text-ink active:scale-90 active:bg-glass-3"
+    >
+      {children}
+    </button>
+  );
+}

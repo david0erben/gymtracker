@@ -2,10 +2,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isOwnData(userId) {
+    function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
     }
 
+    // Alter Gym Tracker (bleibt als Backup und für den Übergang unverändert)
     function isValidMainDocument() {
       return request.resource.data.keys().hasOnly([
           "version",
@@ -22,8 +23,36 @@ service cloud.firestore {
     }
 
     match /users/{userId}/data/main {
-      allow read, delete: if isOwnData(userId);
-      allow create, update: if isOwnData(userId) && isValidMainDocument();
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidMainDocument();
+    }
+
+    // Neue App: Einstellungen, laufende Trainings, Versionsinfo
+    match /users/{userId}/data/{docId} {
+      allow read, write: if isOwner(userId) && docId in ['settings', 'session', 'meta'];
+    }
+
+    // Neue App: ein Dokument pro Training, Körpergewicht und Cardio-Einheit
+    match /users/{userId}/workouts/{id} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.id == id
+        && request.resource.data.date is string
+        && request.resource.data.exercises is list;
+    }
+
+    match /users/{userId}/bodyweight/{id} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.date is string
+        && request.resource.data.weight is number;
+    }
+
+    match /users/{userId}/cardio/{id} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.date is string
+        && request.resource.data.durationMin is number;
     }
 
     match /{document=**} {
@@ -31,4 +60,3 @@ service cloud.firestore {
     }
   }
 }
-
