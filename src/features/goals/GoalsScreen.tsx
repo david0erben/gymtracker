@@ -4,8 +4,8 @@ import { Button, cx, ScreenHeader, Segmented, Sheet } from '../../components/ui'
 import { goalLine, strengthSeries } from '../../domain/analytics';
 import { addMonths, formatFull, todayKey } from '../../domain/dates';
 import { formatNumber, parseDecimal, parseInteger } from '../../domain/format';
-import { DAY_KEYS, exerciseInfo, shortName, TRAINING_PLAN, type EquipmentId, type PlannedExercise } from '../../domain/plan';
-import { defaultSettings, overrideFor, resolveExerciseConfig, slotKey, type ExerciseOverride, type ProgressionProfile, type Settings } from '../../domain/settings';
+import { exerciseInfo, planById, plannedName, strengthDays, WEEK, type EquipmentId, type PlannedExercise, type TrainingPlan } from '../../domain/plan';
+import { activePlan, DEFAULT_PROFILES, defaultSettings, overrideFor, resolveExerciseConfig, slotKey, type ExerciseOverride, type ProgressionProfile, type Settings } from '../../domain/settings';
 import type { DayKey } from '../../domain/types';
 import { useStore } from '../../state/store';
 import { AccountButton } from '../settings/AccountButton';
@@ -18,19 +18,19 @@ const PROFILE_ICON: Record<string, ReactNode> = {
   endurance: <Flame size={20} />,
 };
 
-/** Übungen in Plan-Reihenfolge (einmalig) mit dem ersten Vorkommen im Plan. */
-const PLANNED: PlannedExercise[] = (() => {
+/** Übungen eines Plans in Plan-Reihenfolge (einmalig) mit dem ersten Vorkommen im Plan. */
+function plannedExercises(plan: TrainingPlan): PlannedExercise[] {
   const seen = new Set<string>();
   const list: PlannedExercise[] = [];
-  for (const day of DAY_KEYS) {
-    for (const exercise of TRAINING_PLAN[day].exercises) {
+  for (const day of strengthDays(plan)) {
+    for (const exercise of plan.days[day].exercises) {
       if (seen.has(exercise.name)) continue;
       seen.add(exercise.name);
       list.push(exercise);
     }
   }
   return list;
-})();
+}
 
 interface EditTarget {
   day: DayKey;
@@ -45,6 +45,7 @@ export function GoalsScreen() {
 
   const update = (patch: Partial<Settings>) => updateSettings((current) => ({ ...current, ...patch }));
   const activeProfile = settings.profiles.find((profile) => profile.id === settings.activeProfileId) ?? settings.profiles[0];
+  const plan = activePlan(settings);
 
   return (
     <div className="pb-36">
@@ -66,14 +67,17 @@ export function GoalsScreen() {
         {section === 'volume' && (
           <>
             <WeeklyVolume />
-            <Section title="Pro Übung" text="Reps-Range, Sets und Gerät für jede Übung einzeln einstellen. Eigene Werte sind mit einem Punkt markiert.">
-              {DAY_KEYS.map((day) => (
+            <Section
+              title="Pro Übung"
+              text={`Reps-Range, Sets und Gerät für jede Übung einzeln einstellen. Eigene Werte sind mit einem Punkt markiert. Plan: ${plan.name}.`}
+            >
+              {strengthDays(plan).map((day) => (
                 <div key={day} className="mb-2 last:mb-0">
                   <p className="eyebrow mb-1 px-1">
-                    {TRAINING_PLAN[day].short} · {TRAINING_PLAN[day].title}
+                    {plan.days[day].short} · {plan.days[day].tag === plan.days[day].title ? plan.days[day].title : `${plan.days[day].tag} · ${plan.days[day].title}`}
                   </p>
                   <ul className="-mx-1">
-                    {TRAINING_PLAN[day].exercises.map((planned) => {
+                    {plan.days[day].exercises.map((planned) => {
                       const config = resolveExerciseConfig(planned, settings, day);
                       const custom = Object.keys(overrideFor(settings, planned.name, day)).length > 0;
                       return (
@@ -85,7 +89,7 @@ export function GoalsScreen() {
                           >
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-[14px] font-medium">
-                                {shortName(planned.name)}
+                                {plannedName(planned)}
                                 {custom && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent align-middle" />}
                               </p>
                               <p className="text-[12px] text-ink-3">
@@ -106,7 +110,10 @@ export function GoalsScreen() {
 
         {section === 'progression' && (
           <>
-            <Section title="Trainingsziel" text="„Individuell“ nutzt genau deine Sets und Rep-Ranges. Die anderen drei sind Vorschläge, die für alle Übungen gelten.">
+            <Section
+              title="Trainingsziel"
+              text="„Individuell“ ist dein bisheriger Plan mit genau deinen Sets und Rep-Ranges. „Hypertrophie“ hat einen eigenen Wochenplan – beim Auswählen wechselt das Training dorthin. Maximalkraft und Kraftausdauer sind Vorschläge für deinen bisherigen Plan."
+            >
               <div className="grid grid-cols-2 gap-2">
                 {settings.profiles.map((profile) => {
                   const active = profile.id === settings.activeProfileId;
@@ -256,18 +263,49 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   );
 }
 
+/** Beschreibung immer aus der aktuellen App-Version (nicht aus gespeicherten Einstellungen). */
+const describe = (profile: ProgressionProfile) => DEFAULT_PROFILES.find((item) => item.id === profile.id)?.description ?? profile.description;
+
+/** Die Woche des Plans auf einen Blick. */
+function WeekOverview({ plan }: { plan: TrainingPlan }) {
+  return (
+    <ul className="mt-2.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 border-t border-line pt-2.5 text-[13px]">
+      {WEEK.map((key) => {
+        const entry = plan.days[key];
+        return (
+          <li key={key} className="contents">
+            <span className="font-semibold text-ink-3">{entry.short}</span>
+            <span className={cx('truncate', entry.kind === 'strength' ? 'text-ink' : 'text-ink-3')}>
+              {entry.kind === 'strength' && entry.tag !== entry.title ? `${entry.tag} · ${entry.title}` : entry.title}
+              {entry.kind === 'strength' && <span className="text-ink-3"> · {entry.exercises.length} Übungen</span>}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function ProfileEditor({ profile, onChange }: { profile: ProgressionProfile; onChange: (profile: ProgressionProfile) => void }) {
-  if (profile.id === 'individual') {
+  if (profile.repSource === 'plan' && profile.setsSource === 'plan') {
     return (
       <div className="mt-3 rounded-2xl border border-line bg-white/[0.03] px-3.5 py-3">
-        <p className="text-[13px] leading-relaxed text-ink-2">{profile.description}</p>
-        <p className="mt-2 text-[12.5px] text-ink-3">Einzelne Übungen änderst du unter Volumen → Pro Übung.</p>
+        <p className="text-[13px] leading-relaxed text-ink-2">{describe(profile)}</p>
+        <WeekOverview plan={planById(profile.planId)} />
+        {profile.volumeTargets?.length ? (
+          <div className="mt-3 border-t border-line pt-2.5">
+            <p className="text-[14px] font-medium">Wochenziele</p>
+            <p className="text-[12px] text-ink-3">Sets pro Woche je Muskel. Unter Volumen siehst du, ob dein Plan im Ziel liegt – an den Sets ändert das nichts.</p>
+            <VolumeTargetList profile={profile} onChange={onChange} />
+          </div>
+        ) : null}
+        <p className="mt-2.5 text-[12.5px] text-ink-3">Einzelne Übungen änderst du unter Volumen → Pro Übung.</p>
       </div>
     );
   }
   return (
     <div className="mt-3 rounded-2xl border border-line bg-white/[0.03] px-3.5 py-1.5">
-      <p className="pt-2 text-[13px] text-ink-2">{profile.description}</p>
+      <p className="pt-2 text-[13px] text-ink-2">{describe(profile)}</p>
       <Row label="Grundübungen" hint="Reps, z. B. Bankdrücken">
         <SmallNumber value={profile.compound.min} min={1} onChange={(min) => min && onChange({ ...profile, compound: { ...profile.compound, min } })} />–
         <SmallNumber value={profile.compound.max} min={1} onChange={(max) => onChange({ ...profile, compound: { ...profile.compound, max } })} />
@@ -276,12 +314,40 @@ function ProfileEditor({ profile, onChange }: { profile: ProgressionProfile; onC
         <SmallNumber value={profile.isolation.min} min={1} onChange={(min) => min && onChange({ ...profile, isolation: { ...profile.isolation, min } })} />–
         <SmallNumber value={profile.isolation.max} min={1} onChange={(max) => onChange({ ...profile, isolation: { ...profile.isolation, max } })} />
       </Row>
-      <Row label="Sets" hint="pro Übung">
-        <SmallNumber value={profile.sets} min={1} onChange={(sets) => sets && onChange({ ...profile, sets, setsSource: 'fixed' })} />
-      </Row>
+      {profile.setsSource === 'volume' ? (
+        <div className="py-2">
+          <p className="text-[14px] font-medium">Sets pro Woche</p>
+          <p className="text-[12px] text-ink-3">Die App verteilt die Sets so auf deine Übungen, dass jede Gruppe ihr Ziel erreicht.</p>
+          <VolumeTargetList profile={profile} onChange={onChange} />
+        </div>
+      ) : (
+        <Row label="Sets" hint="pro Übung">
+          <SmallNumber value={profile.sets} min={1} onChange={(sets) => sets && onChange({ ...profile, sets, setsSource: 'fixed' })} />
+        </Row>
+      )}
       <Row label="Ziel-RIR" hint="Reps in Reserve">
         <SmallNumber value={profile.targetRir} min={0} onChange={(targetRir) => onChange({ ...profile, targetRir })} />
       </Row>
+    </div>
+  );
+}
+
+function VolumeTargetList({ profile, onChange }: { profile: ProgressionProfile; onChange: (profile: ProgressionProfile) => void }) {
+  return (
+    <div className="mt-2 flex flex-col divide-y divide-line">
+      {(profile.volumeTargets ?? []).map((target) => {
+        const update = (patch: Partial<typeof target>) =>
+          onChange({ ...profile, volumeTargets: (profile.volumeTargets ?? []).map((item) => (item.id === target.id ? { ...item, ...patch } : item)) });
+        return (
+          <div key={target.id} className="flex items-center justify-between gap-3 py-1.5">
+            <span className="text-[13.5px] text-ink-2">{target.label}</span>
+            <span className="flex items-center gap-1.5 text-[13px] text-ink-3">
+              <SmallNumber value={target.min} min={0} onChange={(min) => min !== null && update({ min, max: Math.max(min, target.max) })} />–
+              <SmallNumber value={target.max} min={0} onChange={(max) => max !== null && update({ max: Math.max(max, target.min) })} />
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -298,7 +364,7 @@ function GoalSection() {
     let onTrack = 0;
     let total = 0;
     let progress = 0;
-    for (const planned of PLANNED) {
+    for (const planned of plannedExercises(activePlan(settings))) {
       const series = strengthSeries(workouts, planned.name, settings.levelShifts[planned.name] ?? []);
       if (series.metric !== 'e1rm') continue;
       const line = goalLine(series.points, goal, today);
@@ -308,7 +374,7 @@ function GoalSection() {
       progress += line.progress;
     }
     return { onTrack, total, progress: total ? progress / total : 0 };
-  }, [goal, workouts, settings.levelShifts, today]);
+  }, [goal, workouts, settings, today]);
 
   const setGoal = (patch: Partial<NonNullable<Settings['goal']>>) =>
     updateSettings((current) => ({ ...current, goal: { percent: 5, months: 6, startDate: today, ...(current.goal ?? {}), ...patch } }));
@@ -407,9 +473,11 @@ function ExerciseSheet({ target, onClose }: { target: EditTarget | null; onClose
   const updateSettings = useStore((state) => state.updateSettings);
   if (!target) return null;
   const { day, planned } = target;
+  const plan = activePlan(settings);
+  const key = slotKey(day, planned.name, plan.id);
   const config = resolveExerciseConfig(planned, settings, day);
   const info = exerciseInfo(planned.name);
-  const slot = settings.exercises[slotKey(day, planned.name)] ?? {};
+  const slot = settings.exercises[key] ?? {};
   const general = settings.exercises[planned.name] ?? {};
 
   const write = (key: string, patch: Partial<ExerciseOverride>) =>
@@ -421,14 +489,14 @@ function ExerciseSheet({ target, onClose }: { target: EditTarget | null; onClose
       return { ...current, exercises };
     });
   // Reps, Sets und Trainingsziel gelten nur für diesen Tag, das Gerät für die Übung insgesamt
-  const setSlot = (patch: Partial<ExerciseOverride>) => write(slotKey(day, planned.name), patch);
+  const setSlot = (patch: Partial<ExerciseOverride>) => write(key, patch);
   const setGeneral = (patch: Partial<ExerciseOverride>) => write(planned.name, patch);
   const custom = Object.keys(slot).length > 0 || Object.keys(general).length > 0;
 
   return (
-    <Sheet open onClose={onClose} title={shortName(planned.name)}>
+    <Sheet open onClose={onClose} title={plannedName(planned)}>
       <p className="text-[13px] text-ink-3">
-        {TRAINING_PLAN[day].short} · {TRAINING_PLAN[day].title} · {info.primary.join(', ')} · {info.category === 'compound' ? 'Grundübung' : 'Isolationsübung'}
+        {plan.days[day].short} · {plan.days[day].title} · {info.primary.join(', ')} · {info.category === 'compound' ? 'Grundübung' : 'Isolationsübung'}
       </p>
 
       <div className="mt-4 rounded-2xl border border-line bg-white/[0.03] px-3.5 py-1">
@@ -482,7 +550,7 @@ function ExerciseSheet({ target, onClose }: { target: EditTarget | null; onClose
           onClick={() =>
             updateSettings((current) => {
               const exercises = { ...current.exercises };
-              delete exercises[slotKey(day, planned.name)];
+              delete exercises[key];
               delete exercises[planned.name];
               return { ...current, exercises };
             })

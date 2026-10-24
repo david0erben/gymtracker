@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Bike, Check, CircleCheck, Footprints, HeartPulse, Trash2 } from 'lucide-react';
 import { cx } from '../../components/ui';
 import { createId } from '../../data/legacy';
-import { CARDIO_TYPES, formatDuration, formatPace, paceMinPerKm, speedKmh, type CardioDayKey, type CardioEntry, type CardioType } from '../../domain/cardio';
+import { CARDIO_TYPES, formatDuration, formatPace, paceMinPerKm, speedKmh, type CardioEntry, type CardioType } from '../../domain/cardio';
+import type { DayKey } from '../../domain/types';
 import { formatShort, todayKey } from '../../domain/dates';
 import { formatNumber } from '../../domain/format';
 import { round2 } from '../../domain/strength';
@@ -15,8 +16,8 @@ const TYPE_ICON: Record<CardioType, React.ReactNode> = {
   bike: <Bike size={17} />,
 };
 
-/** Cardio-Tag (Mittwoch/Sonntag): eine Einheit Laufen oder Radfahren eintragen. */
-export function CardioDay({ day }: { day: CardioDayKey }) {
+/** Cardio-Tag: eine Einheit Laufen oder Radfahren eintragen. */
+export function CardioDay({ day }: { day: DayKey }) {
   const cardio = useStore((state) => state.cardio);
   const saveCardio = useStore((state) => state.saveCardio);
   const deleteCardio = useStore((state) => state.deleteCardio);

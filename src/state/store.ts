@@ -2,11 +2,11 @@ import { create } from 'zustand';
 import { normalizeAppData, createId, type AppData } from '../data/legacy';
 import { applyDataFixes } from '../data/fixes';
 import { analyzeHistory, applyOutlierFlags, shiftsByExercise } from '../domain/outliers';
-import { todaysWeekDay, type WeekDayKey } from '../domain/plan';
+import { todaysWeekDay, type TrainingPlan, type WeekDayKey } from '../domain/plan';
 import type { CardioEntry } from '../domain/cardio';
-import { defaultSettings, normalizeSettings, type Settings } from '../domain/settings';
+import { activePlan, defaultSettings, normalizeSettings, type Settings } from '../domain/settings';
 import { compareWorkouts } from '../domain/strength';
-import type { BodyweightEntry, DayKey, Workout } from '../domain/types';
+import type { BodyweightEntry, Workout } from '../domain/types';
 import { workoutFromDraft, type DraftSession, type FinishOptions } from './drafts';
 
 export type Tab = 'training' | 'history' | 'analytics' | 'body' | 'goals';
@@ -16,7 +16,8 @@ export interface PersistedState {
   bodyweight: BodyweightEntry[];
   cardio: CardioEntry[];
   settings: Settings;
-  drafts: Partial<Record<DayKey, DraftSession>>;
+  /** angefangene Trainings, Schlüssel = draftKey(Plan, Tag) */
+  drafts: Partial<Record<string, DraftSession>>;
 }
 
 export interface Account {
@@ -54,9 +55,9 @@ interface AppStore extends PersistedState {
   hydrate: () => Promise<void>;
   setTab: (tab: Tab) => void;
   selectDay: (day: WeekDayKey) => void;
-  setDraft: (day: DayKey, draft: DraftSession | undefined) => void;
-  updateDraft: (day: DayKey, update: (draft: DraftSession) => DraftSession) => void;
-  finishWorkout: (day: DayKey, options: FinishOptions) => Workout | null;
+  setDraft: (key: string, draft: DraftSession | undefined) => void;
+  updateDraft: (key: string, update: (draft: DraftSession) => DraftSession) => void;
+  finishWorkout: (key: string, options: FinishOptions) => Workout | null;
   saveWorkout: (workout: Workout) => void;
   deleteWorkout: (id: string) => Workout | null;
   addBodyweight: (date: string, weight: number) => void;
@@ -227,29 +228,29 @@ export const useStore = create<AppStore>((set, get) => ({
   setTab: (tab) => set({ tab }),
   selectDay: (day) => set({ selectedDay: day }),
 
-  setDraft: (day, draft) =>
+  setDraft: (key, draft) =>
     set((state) => {
       const drafts = { ...state.drafts };
-      if (draft) drafts[day] = draft;
-      else delete drafts[day];
+      if (draft) drafts[key] = draft;
+      else delete drafts[key];
       return { drafts };
     }),
 
-  updateDraft: (day, update) =>
+  updateDraft: (key, update) =>
     set((state) => {
-      const current = state.drafts[day];
+      const current = state.drafts[key];
       if (!current) return {};
-      return { drafts: { ...state.drafts, [day]: update(current) } };
+      return { drafts: { ...state.drafts, [key]: update(current) } };
     }),
 
-  finishWorkout: (day, options) => {
-    const draft = get().drafts[day];
+  finishWorkout: (key, options) => {
+    const draft = get().drafts[key];
     if (!draft) return null;
     const workout = workoutFromDraft(draft, options);
     if (!workout.exercises.some((exercise) => exercise.sets.length)) return null;
     set((state) => {
       const drafts = { ...state.drafts };
-      delete drafts[day];
+      delete drafts[key];
       return { workouts: sortWorkouts([...state.workouts, workout]), drafts };
     });
     return workout;
@@ -317,6 +318,11 @@ export const useStore = create<AppStore>((set, get) => ({
 }));
 
 // Alles Persistente lokal sichern (kurz entprellt, damit Tippen nicht jedes Mal schreibt)
+/** Wochenplan des gewählten Trainingsziels. */
+export function useActivePlan(): TrainingPlan {
+  return useStore((state) => activePlan(state.settings));
+}
+
 useStore.subscribe((state, previous) => {
   if (!state.hydrated || state.account.status === 'signedOut') return;
   if (

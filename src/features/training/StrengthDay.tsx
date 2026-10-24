@@ -2,14 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { CircleCheck, Flag, RotateCcw } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { todayKey } from '../../domain/dates';
-import { TRAINING_PLAN } from '../../domain/plan';
+import type { TrainingPlan } from '../../domain/plan';
 import type { DayKey } from '../../domain/types';
-import { draftFromRecommendations, doneSetCount, isExerciseComplete, type DraftExercise, type DraftSession, type DraftSet, type FinishOptions } from '../../state/drafts';
+import { draftFromRecommendations, draftKey, doneSetCount, isExerciseComplete, type DraftExercise, type DraftSession, type DraftSet, type FinishOptions } from '../../state/drafts';
 import { useStore } from '../../state/store';
 import { useDayPlan } from '../../state/useDayPlan';
 import { ExerciseCard } from './ExerciseCard';
 import { FinishSheet } from './FinishSheet';
 import { TrainingHeader } from './TrainingHeader';
+
+function sameExercises(a: DraftSession, b: DraftSession): boolean {
+  return a.exercises.length === b.exercises.length && a.exercises.every((exercise, index) => exercise.name === b.exercises[index].name);
+}
 
 function firstIncomplete(session: DraftSession, after = -1): number | null {
   const index = session.exercises.findIndex((exercise, position) => position > after && !isExerciseComplete(exercise));
@@ -17,7 +21,7 @@ function firstIncomplete(session: DraftSession, after = -1): number | null {
 }
 
 /** Krafttag: Übungen aus dem Plan mit vorausgefüllten Empfehlungen. */
-export function StrengthDay({ day }: { day: DayKey }) {
+export function StrengthDay({ plan: trainingPlan, day }: { plan: TrainingPlan; day: DayKey }) {
   const drafts = useStore((state) => state.drafts);
   const setDraft = useStore((state) => state.setDraft);
   const updateDraft = useStore((state) => state.updateDraft);
@@ -26,27 +30,31 @@ export function StrengthDay({ day }: { day: DayKey }) {
   const workouts = useStore((state) => state.workouts);
   const showToast = useStore((state) => state.showToast);
 
-  const draft = drafts[day];
-  const plan = useDayPlan(day);
+  const key = draftKey(trainingPlan.id, day);
+  const plan = useDayPlan(trainingPlan, day);
   const today = todayKey();
   const virtual = useMemo(
-    () => draftFromRecommendations(day, today, plan.map((item) => ({ name: item.planned.name, recommendation: item.recommendation }))),
-    [day, today, plan],
+    () => draftFromRecommendations(day, today, plan.map((item) => ({ name: item.planned.name, recommendation: item.recommendation })), trainingPlan.id),
+    [day, today, plan, trainingPlan.id],
   );
+  // Ein angefangenes Training passt nur, wenn es noch dieselben Übungen hat wie der Plan
+  const stored = drafts[key];
+  const draft = stored && sameExercises(stored, virtual) ? stored : undefined;
   const session = draft ?? virtual;
 
   const [expanded, setExpanded] = useState<number | null>(() => firstIncomplete(session));
   const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
-    setExpanded(firstIncomplete(useStore.getState().drafts[day] ?? virtual));
+    setExpanded(firstIncomplete(draft ?? virtual));
     // nur beim Tageswechsel neu ausrichten
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day]);
 
   const mutate = (update: (current: DraftSession) => DraftSession) => {
-    if (useStore.getState().drafts[day]) updateDraft(day, update);
-    else setDraft(day, update(virtual));
+    const current = useStore.getState().drafts[key];
+    if (current && sameExercises(current, virtual)) updateDraft(key, update);
+    else setDraft(key, update(virtual));
   };
 
   const mutateExercise = (index: number, update: (exercise: DraftExercise) => DraftExercise) =>
@@ -93,7 +101,7 @@ export function StrengthDay({ day }: { day: DayKey }) {
   };
 
   const confirmFinish = (options: FinishOptions) => {
-    const workout = finishWorkout(day, options);
+    const workout = finishWorkout(key, options);
     setFinishing(false);
     if (!workout) {
       showToast('Keine Sets gespeichert.', 'error');
@@ -114,9 +122,9 @@ export function StrengthDay({ day }: { day: DayKey }) {
 
   const resetDay = () => {
     const previous = draft;
-    setDraft(day, undefined);
+    setDraft(key, undefined);
     setExpanded(firstIncomplete(virtual));
-    showToast('Training zurückgesetzt.', 'default', previous ? { label: 'Rückgängig', run: () => setDraft(day, previous) } : undefined);
+    showToast('Training zurückgesetzt.', 'default', previous ? { label: 'Rückgängig', run: () => setDraft(key, previous) } : undefined);
   };
 
   const changeDate = (value: string) => {
@@ -126,9 +134,9 @@ export function StrengthDay({ day }: { day: DayKey }) {
 
   return (
     <div className="pb-36">
-      <TrainingHeader date={session.date} onDateChange={changeDate} title={TRAINING_PLAN[day].title} />
+      <TrainingHeader date={session.date} onDateChange={changeDate} title={trainingPlan.days[day].title} />
 
-      {!draft && workouts.some((workout) => workout.date === today && workout.trainingDay === day) && (
+      {!draft && workouts.some((workout) => workout.date === today && workout.trainingDay === day && (workout.planId ?? 'classic') === trainingPlan.id) && (
         <div className="mx-4 mt-4 flex items-center gap-3 rounded-2xl border border-success/25 bg-success/[0.07] px-4 py-3 text-[13.5px] text-success">
           <CircleCheck size={18} className="shrink-0" />
           <span>Heute erledigt – stark! Die Empfehlungen unten gelten schon fürs nächste Mal.</span>

@@ -3,7 +3,7 @@ import { Ban, Plus, SkipForward, Trash2, X } from 'lucide-react';
 import { Button, cx, Sheet } from '../../components/ui';
 import { formatFull } from '../../domain/dates';
 import { formatNumber, parseDecimal, parseInteger } from '../../domain/format';
-import { shortName, TRAINING_PLAN } from '../../domain/plan';
+import { exerciseLabel, workoutTitle } from '../../domain/plan';
 import type { ExerciseEntry, SetEntry, Workout } from '../../domain/types';
 import { useStore } from '../../state/store';
 
@@ -46,7 +46,7 @@ export function WorkoutSheet({ workout, onClose }: { workout: Workout | null; on
     <Sheet
       open
       onClose={onClose}
-      title={TRAINING_PLAN[workout.trainingDay]?.title ?? 'Training'}
+      title={workoutTitle(workout)}
       footer={
         <div className="flex gap-2">
           <Button variant="danger" onClick={remove} aria-label="Training löschen">
@@ -73,7 +73,7 @@ export function WorkoutSheet({ workout, onClose }: { workout: Workout | null; on
           <section key={`${entry.name}-${index}`} className={cx('rounded-2xl border border-line bg-glass px-3.5 pb-2.5 pt-3', entry.excluded && 'border-line-2')}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h3 className="text-[15px] font-semibold leading-snug">{shortName(entry.name)}</h3>
+                <h3 className="text-[15px] font-semibold leading-snug">{exerciseLabel(entry.name, workout.planId, workout.trainingDay)}</h3>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {entry.skipped && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-glass-2 px-2 py-0.5 text-[11px] font-semibold text-ink-3">

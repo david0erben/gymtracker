@@ -1,12 +1,12 @@
-import { CARDIO_DAYS } from './cardio';
 import { addDays, daysBetween, parseDateKey } from './dates';
-import { DAY_KEYS, TRAINING_PLAN } from './plan';
+import { CLASSIC_PLAN, planById, WEEK, type TrainingPlan } from './plan';
+import type { Workout } from './types';
 
 /**
  * Serien und Plantreue: Wie viele geplante Trainingstage am Stück hast du durchgezogen?
  *
- * - Geplant sind die Krafttage aus dem Plan (Mo, Di, Do, Fr, Sa) und – ab deiner ersten
- *   Cardio-Einheit – die Cardio-Tage (Mi, So).
+ * - Geplant sind die Krafttage aus dem Plan, der an dem Tag galt (bisheriger Plan: Mo, Di, Do, Fr, Sa),
+ *   und – ab deiner ersten Cardio-Einheit – die Cardio-Tage (Mi, So).
  * - Ruhetage unterbrechen keine Serie. Ein geplanter Tag ohne Training beendet sie.
  * - Heute zählt erst, wenn du trainiert hast – ein noch offener Tag bricht nichts ab.
  */
@@ -20,13 +20,32 @@ export interface StreakStats {
   doneDays: number;
 }
 
-const STRENGTH_WEEKDAYS = new Set(DAY_KEYS.map((day) => TRAINING_PLAN[day].weekday));
-const CARDIO_WEEKDAYS = new Set(Object.values(CARDIO_DAYS).map((day) => day.weekday));
+type PlanAt = (date: string) => TrainingPlan;
 
-export function isPlannedDay(date: string, cardioSince: string | null): boolean {
-  const weekday = parseDateKey(date).getDay();
-  if (STRENGTH_WEEKDAYS.has(weekday)) return true;
-  return cardioSince !== null && date >= cardioSince && CARDIO_WEEKDAYS.has(weekday);
+export function isPlannedDay(date: string, cardioSince: string | null, planAt: PlanAt = () => CLASSIC_PLAN): boolean {
+  const kind = planAt(date).days[WEEK[(parseDateKey(date).getDay() + 6) % 7]].kind;
+  if (kind === 'strength') return true;
+  return kind === 'cardio' && cardioSince !== null && date >= cardioSince;
+}
+
+/**
+ * Welcher Plan galt an einem Tag? Der Plan deines letzten Trainings bis zu diesem Tag;
+ * nach deinem letzten Training gilt der aktuell gewählte Plan.
+ */
+export function planTimeline(workouts: Workout[], current: TrainingPlan): PlanAt {
+  const changes = [...workouts]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((workout) => ({ date: workout.date, planId: workout.planId ?? 'classic' }));
+  const lastDate = changes.at(-1)?.date ?? '';
+  return (date) => {
+    if (date > lastDate) return current;
+    let planId = changes[0]?.planId ?? current.id;
+    for (const change of changes) {
+      if (change.date > date) break;
+      planId = change.planId;
+    }
+    return planById(planId);
+  };
 }
 
 export function streakStats(
@@ -34,6 +53,7 @@ export function streakStats(
   cardioDates: string[],
   today: string,
   adherenceDays = 28,
+  planAt: PlanAt = () => CLASSIC_PLAN,
 ): StreakStats {
   const trained = new Set([...trainingDates, ...cardioDates]);
   const cardioSince = cardioDates.length ? [...cardioDates].sort()[0] : null;
@@ -43,7 +63,7 @@ export function streakStats(
   let run = 0;
   let longest = 0;
   for (let date = first; date <= today; date = addDays(date, 1)) {
-    if (!isPlannedDay(date, cardioSince)) continue;
+    if (!isPlannedDay(date, cardioSince, planAt)) continue;
     if (trained.has(date)) {
       run += 1;
       longest = Math.max(longest, run);
@@ -57,7 +77,7 @@ export function streakStats(
   let doneDays = 0;
   const start = addDays(today, -(adherenceDays - 1));
   for (let date = start < first ? first : start; date <= today; date = addDays(date, 1)) {
-    if (!isPlannedDay(date, cardioSince)) continue;
+    if (!isPlannedDay(date, cardioSince, planAt)) continue;
     if (date === today && !trained.has(date)) continue;
     plannedDays += 1;
     if (trained.has(date)) doneDays += 1;

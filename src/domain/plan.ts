@@ -1,4 +1,3 @@
-import { CARDIO_DAYS, type CardioDayKey } from './cardio';
 import type { DayKey } from './types';
 
 /**
@@ -8,9 +7,14 @@ import type { DayKey } from './types';
  */
 
 export type MuscleGroup =
-  | 'Chest'
-  | 'Back'
-  | 'Shoulders'
+  | 'Upper Chest'
+  | 'Mid Chest'
+  | 'Lower Chest'
+  | 'Upper Back'
+  | 'Lats'
+  | 'Front Delts'
+  | 'Side Delts'
+  | 'Rear Delts'
   | 'Biceps'
   | 'Triceps'
   | 'Quads'
@@ -22,16 +26,21 @@ export type MuscleGroup =
   | 'Lower Back';
 
 export const MUSCLE_GROUPS: MuscleGroup[] = [
-  'Chest',
-  'Back',
-  'Shoulders',
+  'Upper Chest',
+  'Mid Chest',
+  'Lower Chest',
+  'Upper Back',
+  'Lats',
+  'Front Delts',
+  'Side Delts',
+  'Rear Delts',
   'Biceps',
   'Triceps',
   'Quads',
   'Hamstrings',
   'Glutes',
-  'Calves',
   'Adductors',
+  'Calves',
   'Abs',
   'Lower Back',
 ];
@@ -49,13 +58,19 @@ export type EquipmentId =
   | 'bodyweight';
 
 export interface PlannedExercise {
+  /** Schlüssel für Verlauf und Empfehlungen – gleiche Übung, gleicher Verlauf, egal in welchem Plan */
   name: string;
+  /** optionaler Anzeigename im Plan, z. B. „Leg Press / V-Squat“ */
+  label?: string;
   targetSets: number;
   repRange: { min: number; max: number | null };
 }
 
+export type DayKind = 'strength' | 'cardio' | 'rest';
+
 export interface TrainingDay {
   key: DayKey;
+  kind: DayKind;
   label: string;
   short: string;
   title: string;
@@ -65,89 +80,144 @@ export interface TrainingDay {
   exercises: PlannedExercise[];
 }
 
-export const TRAINING_PLAN: Record<DayKey, TrainingDay> = {
-  monday: {
-    key: 'monday',
-    label: 'Montag – Anterior Chain',
-    short: 'Mo',
-    title: 'Anterior Chain',
-    tag: 'Ant.',
-    weekday: 1,
-    exercises: [
-      { name: 'Schrägbank Kurzhantel Bankdrücken', targetSets: 3, repRange: { min: 6, max: 10 } },
-      { name: 'Dips', targetSets: 3, repRange: { min: 8, max: 12 } },
-      { name: 'Chest Flys', targetSets: 2, repRange: { min: 12, max: 15 } },
-      { name: 'Katana Extensions', targetSets: 2, repRange: { min: 10, max: 15 } },
-      { name: 'Beinstrecker', targetSets: 3, repRange: { min: 10, max: 15 } },
-      { name: 'Seitheben Maschine/Schulter', targetSets: 3, repRange: { min: 12, max: 20 } },
-    ],
-  },
-  tuesday: {
-    key: 'tuesday',
-    label: 'Dienstag – Posterior Chain',
-    short: 'Di',
-    title: 'Posterior Chain',
-    tag: 'Post.',
-    weekday: 2,
-    exercises: [
-      { name: 'T-Bar Row mit Brustauflage', targetSets: 3, repRange: { min: 6, max: 12 } },
-      { name: 'Latzug', targetSets: 3, repRange: { min: 8, max: 12 } },
-      { name: 'RDLs', targetSets: 2, repRange: { min: 6, max: 10 } },
-      { name: 'Beinbeuger', targetSets: 2, repRange: { min: 10, max: 15 } },
-      { name: 'Face Pulls', targetSets: 2, repRange: { min: 12, max: 15 } },
-      { name: 'Bicep Curls Ellenbogen hinter Körper', targetSets: 2, repRange: { min: 10, max: 12 } },
-      { name: 'Hanging Leg Raises', targetSets: 3, repRange: { min: 6, max: 10 } },
-    ],
-  },
-  thursday: {
-    key: 'thursday',
-    label: 'Donnerstag – Chest & Arms',
-    short: 'Do',
-    title: 'Chest & Arms',
-    tag: 'Arms',
-    weekday: 4,
-    exercises: [
-      { name: 'Schrägbank Bankdrücken Multipresse', targetSets: 3, repRange: { min: 8, max: 12 } },
-      { name: 'Brustpresse', targetSets: 2, repRange: { min: 8, max: 12 } },
-      { name: 'Hammer Curls', targetSets: 2, repRange: { min: 10, max: 12 } },
-      { name: 'Trizeps Pushdowns', targetSets: 2, repRange: { min: 10, max: 15 } },
-      { name: 'Preacher Curl', targetSets: 2, repRange: { min: 8, max: 12 } },
-    ],
-  },
-  friday: {
-    key: 'friday',
-    label: 'Freitag – Lower Body',
-    short: 'Fr',
-    title: 'Lower Body',
-    tag: 'Legs',
-    weekday: 5,
-    exercises: [
-      { name: 'Beinpresse', targetSets: 2, repRange: { min: 8, max: 15 } },
-      { name: 'Beinstrecker', targetSets: 2, repRange: { min: 10, max: 15 } },
-      { name: 'Beinbeuger', targetSets: 2, repRange: { min: 8, max: 15 } },
-      { name: 'Adduktoren', targetSets: 2, repRange: { min: 12, max: 15 } },
-      { name: 'Waden', targetSets: 3, repRange: { min: 10, max: 12 } },
-      { name: 'Cable Crunches', targetSets: 4, repRange: { min: 20, max: 30 } },
-    ],
-  },
-  saturday: {
-    key: 'saturday',
-    label: 'Samstag – Shoulders & Back',
-    short: 'Sa',
-    title: 'Shoulders & Back',
-    tag: 'Upper',
-    weekday: 6,
-    exercises: [
-      { name: 'Kurzhantel Schulterdrücken', targetSets: 3, repRange: { min: 6, max: 10 } },
-      { name: 'Rudern mit Brustauflage sitzend', targetSets: 3, repRange: { min: 8, max: 12 } },
-      { name: 'Latzug eng im Untergriff', targetSets: 3, repRange: { min: 8, max: 12 } },
-      { name: 'Seitheben Kurzhantel', targetSets: 3, repRange: { min: 12, max: 20 } },
-      { name: 'Back Extensions', targetSets: 3, repRange: { min: 12, max: 20 } },
-    ],
+export interface TrainingPlan {
+  id: string;
+  name: string;
+  days: Record<DayKey, TrainingDay>;
+}
+
+export const WEEK: DayKey[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const WEEKDAY: Record<DayKey, { name: string; short: string; index: number }> = {
+  monday: { name: 'Montag', short: 'Mo', index: 1 },
+  tuesday: { name: 'Dienstag', short: 'Di', index: 2 },
+  wednesday: { name: 'Mittwoch', short: 'Mi', index: 3 },
+  thursday: { name: 'Donnerstag', short: 'Do', index: 4 },
+  friday: { name: 'Freitag', short: 'Fr', index: 5 },
+  saturday: { name: 'Samstag', short: 'Sa', index: 6 },
+  sunday: { name: 'Sonntag', short: 'So', index: 0 },
+};
+
+function day(key: DayKey, kind: DayKind, title: string, tag: string, exercises: PlannedExercise[] = []): TrainingDay {
+  return { key, kind, label: `${WEEKDAY[key].name} – ${title}`, short: WEEKDAY[key].short, title, tag, weekday: WEEKDAY[key].index, exercises };
+}
+
+const set = (name: string, targetSets: number, min: number, max: number | null, label?: string): PlannedExercise =>
+  label ? { name, label, targetSets, repRange: { min, max } } : { name, targetSets, repRange: { min, max } };
+
+/**
+ * Dein bisheriger Plan – Sets und Rep-Ranges unverändert aus dem alten Gym Tracker
+ * (ursprünglich aus der Excel-Tabelle). Gilt für „Individuell“, Maximalkraft und Kraftausdauer.
+ */
+export const CLASSIC_PLAN: TrainingPlan = {
+  id: 'classic',
+  name: 'Dein Plan',
+  days: {
+    monday: day('monday', 'strength', 'Anterior Chain', 'Ant.', [
+      set('Schrägbank Kurzhantel Bankdrücken', 3, 6, 10),
+      set('Dips', 3, 8, 12),
+      set('Chest Flys', 2, 12, 15),
+      set('Katana Extensions', 2, 10, 15),
+      set('Beinstrecker', 3, 10, 15),
+      set('Seitheben Maschine/Schulter', 3, 12, 20),
+    ]),
+    tuesday: day('tuesday', 'strength', 'Posterior Chain', 'Post.', [
+      set('T-Bar Row mit Brustauflage', 3, 6, 12),
+      set('Latzug', 3, 8, 12),
+      set('RDLs', 2, 6, 10),
+      set('Beinbeuger', 2, 10, 15),
+      set('Face Pulls', 2, 12, 15),
+      set('Bicep Curls Ellenbogen hinter Körper', 2, 10, 12),
+      set('Hanging Leg Raises', 3, 6, 10),
+    ]),
+    wednesday: day('wednesday', 'cardio', 'Cardio', 'Cardio'),
+    thursday: day('thursday', 'strength', 'Chest & Arms', 'Arms', [
+      set('Schrägbank Bankdrücken Multipresse', 3, 8, 12),
+      set('Brustpresse', 2, 8, 12),
+      set('Hammer Curls', 2, 10, 12),
+      set('Trizeps Pushdowns', 2, 10, 15),
+      set('Preacher Curl', 2, 8, 12),
+    ]),
+    friday: day('friday', 'strength', 'Lower Body', 'Legs', [
+      set('Beinpresse', 2, 8, 15),
+      set('Beinstrecker', 2, 10, 15),
+      set('Beinbeuger', 2, 8, 15),
+      set('Adduktoren', 2, 12, 15),
+      set('Waden', 3, 10, 12),
+      set('Cable Crunches', 4, 20, 30),
+    ]),
+    saturday: day('saturday', 'strength', 'Shoulders & Back', 'Upper', [
+      set('Kurzhantel Schulterdrücken', 3, 6, 10),
+      set('Rudern mit Brustauflage sitzend', 3, 8, 12),
+      set('Latzug eng im Untergriff', 3, 8, 12),
+      set('Seitheben Kurzhantel', 3, 12, 20),
+      set('Back Extensions', 3, 12, 20),
+    ]),
+    sunday: day('sunday', 'cardio', 'Cardio', 'Cardio'),
   },
 };
 
-export const DAY_KEYS: DayKey[] = ['monday', 'tuesday', 'thursday', 'friday', 'saturday'];
+/** Hypertrophie-Plan: 4 Trainingstage mit je 2 Sets, Do Ruhetag, Mi und So Cardio. */
+export const HYPERTROPHY_PLAN: TrainingPlan = {
+  id: 'hypertrophy',
+  name: 'Hypertrophie',
+  days: {
+    monday: day('monday', 'strength', 'Upper Body', 'Day 1', [
+      set('Plate-Loaded Press', 2, 7, 10),
+      set('Upper-Chest Fly', 2, 7, 10),
+      set('Mid-Chest Fly', 2, 7, 10),
+      set('Unilateral Seated Row/Pull', 2, 7, 10),
+      set('Lying Cable Lat Pulldown', 2, 7, 10),
+      set('Low/Triceps Pulldown', 2, 7, 10),
+      set('Cable Curl', 2, 7, 10),
+    ]),
+    tuesday: day('tuesday', 'strength', 'Legs', 'Day 2', [
+      set('Hack Squat', 2, 7, 10),
+      set('Hack Squat / Hack Sit', 2, 7, 10),
+      set('Bulgarian Split Squat', 2, 7, 10),
+      set('Seated Hamstring Curl', 2, 8, 10),
+      set('Hack Calf Raise', 2, 7, 10),
+      set('Cable Crunches', 2, 7, 10, 'Cable Crunch'),
+    ]),
+    wednesday: day('wednesday', 'cardio', 'Cardio', 'Cardio'),
+    thursday: day('thursday', 'rest', 'Rest Day', 'Rest'),
+    friday: day('friday', 'strength', 'Pull', 'Day 3', [
+      set('Lat Row', 2, 7, 10),
+      set('Unilateral Pulldown', 2, 7, 10),
+      set('Low Row', 2, 7, 10),
+      set('Reverse Fly', 2, 7, 10),
+      set('Cable Y-Raise', 2, 7, 10),
+      set('Incline Dumbbell Curl', 2, 7, 10),
+    ]),
+    saturday: day('saturday', 'strength', 'Legs + Shoulders/Arms', 'Day 4', [
+      set('Beinstrecker', 2, 7, 10),
+      set('Beinpresse', 2, 7, 10, 'Leg Press / V-Squat'),
+      set('Deficit Romanian Deadlift', 2, 7, 10),
+      set('Weighted GHD', 2, 7, 10),
+      set('DB Stretch Fly', 2, 7, 10),
+      set('Cable Front Raise', 2, 7, 10),
+      set('Overhead Triceps Extension', 2, 7, 10),
+    ]),
+    sunday: day('sunday', 'cardio', 'Cardio', 'Cardio'),
+  },
+};
+
+export const PLANS: Record<string, TrainingPlan> = {
+  classic: CLASSIC_PLAN,
+  hypertrophy: HYPERTROPHY_PLAN,
+};
+
+export function planById(id: string | undefined): TrainingPlan {
+  return (id && PLANS[id]) || CLASSIC_PLAN;
+}
+
+/** Krafttage eines Plans in Wochenreihenfolge. */
+export function strengthDays(plan: TrainingPlan): DayKey[] {
+  return WEEK.filter((key) => plan.days[key].kind === 'strength');
+}
+
+/** Kompatibilität: Tage und Übungen deines bisherigen Plans. */
+export const TRAINING_PLAN = CLASSIC_PLAN.days;
+export const DAY_KEYS: DayKey[] = strengthDays(CLASSIC_PLAN);
 
 export interface ExerciseInfo {
   category: ExerciseCategory;
@@ -160,21 +230,21 @@ export interface ExerciseInfo {
 
 // Schlüssel = gespeicherter Name (bleibt für alte Daten gleich), `short` = englischer Anzeigename
 export const EXERCISE_INFO: Record<string, ExerciseInfo> = {
-  'Schrägbank Kurzhantel Bankdrücken': { category: 'compound', equipment: 'dumbbell', primary: ['Chest'], secondary: ['Shoulders', 'Triceps'], short: 'Incline Dumbbell Press' },
-  'Dips': { category: 'compound', equipment: 'machine', primary: ['Chest', 'Triceps'], secondary: ['Shoulders'], short: 'Dips' },
-  'Chest Flys': { category: 'isolation', equipment: 'machine', primary: ['Chest'], secondary: [], short: 'Chest Fly' },
+  'Schrägbank Kurzhantel Bankdrücken': { category: 'compound', equipment: 'dumbbell', primary: ['Upper Chest'], secondary: ['Front Delts', 'Triceps'], short: 'Incline Dumbbell Press' },
+  'Dips': { category: 'compound', equipment: 'machine', primary: ['Lower Chest', 'Triceps'], secondary: ['Front Delts'], short: 'Dips' },
+  'Chest Flys': { category: 'isolation', equipment: 'machine', primary: ['Mid Chest'], secondary: [], short: 'Chest Fly' },
   'Katana Extensions': { category: 'isolation', equipment: 'cable', primary: ['Triceps'], secondary: [], short: 'Katana Extensions' },
   'Beinstrecker': { category: 'isolation', equipment: 'machine', primary: ['Quads'], secondary: [], short: 'Leg Extension' },
-  'Seitheben Maschine/Schulter': { category: 'isolation', equipment: 'machine', primary: ['Shoulders'], secondary: [], short: 'Machine Lateral Raise' },
-  'T-Bar Row mit Brustauflage': { category: 'compound', equipment: 'plates', primary: ['Back'], secondary: ['Biceps', 'Shoulders'], short: 'Chest-Supported T-Bar Row' },
-  'Latzug': { category: 'compound', equipment: 'machine', primary: ['Back'], secondary: ['Biceps'], short: 'Lat Pulldown' },
+  'Seitheben Maschine/Schulter': { category: 'isolation', equipment: 'machine', primary: ['Side Delts'], secondary: [], short: 'Machine Lateral Raise' },
+  'T-Bar Row mit Brustauflage': { category: 'compound', equipment: 'plates', primary: ['Upper Back'], secondary: ['Lats', 'Biceps', 'Rear Delts'], short: 'Chest-Supported T-Bar Row' },
+  'Latzug': { category: 'compound', equipment: 'machine', primary: ['Lats'], secondary: ['Upper Back', 'Biceps'], short: 'Lat Pulldown' },
   'RDLs': { category: 'compound', equipment: 'barbell', primary: ['Hamstrings', 'Glutes'], secondary: ['Lower Back'], short: 'Romanian Deadlift' },
   'Beinbeuger': { category: 'isolation', equipment: 'machine', primary: ['Hamstrings'], secondary: [], short: 'Leg Curl' },
-  'Face Pulls': { category: 'isolation', equipment: 'cable', primary: ['Shoulders'], secondary: ['Back'], short: 'Face Pulls' },
+  'Face Pulls': { category: 'isolation', equipment: 'cable', primary: ['Rear Delts'], secondary: ['Upper Back'], short: 'Face Pulls' },
   'Bicep Curls Ellenbogen hinter Körper': { category: 'isolation', equipment: 'cable', primary: ['Biceps'], secondary: [], short: 'Bayesian Curl' },
   'Hanging Leg Raises': { category: 'isolation', equipment: 'bodyweight', primary: ['Abs'], secondary: [], short: 'Hanging Leg Raises' },
-  'Schrägbank Bankdrücken Multipresse': { category: 'compound', equipment: 'smith', primary: ['Chest'], secondary: ['Shoulders', 'Triceps'], short: 'Incline Smith Machine Press' },
-  'Brustpresse': { category: 'compound', equipment: 'machine', primary: ['Chest'], secondary: ['Triceps', 'Shoulders'], short: 'Chest Press' },
+  'Schrägbank Bankdrücken Multipresse': { category: 'compound', equipment: 'smith', primary: ['Upper Chest'], secondary: ['Front Delts', 'Triceps'], short: 'Incline Smith Machine Press' },
+  'Brustpresse': { category: 'compound', equipment: 'machine', primary: ['Mid Chest'], secondary: ['Triceps', 'Front Delts'], short: 'Chest Press' },
   'Hammer Curls': { category: 'isolation', equipment: 'dumbbell', primary: ['Biceps'], secondary: [], short: 'Hammer Curls' },
   'Trizeps Pushdowns': { category: 'isolation', equipment: 'cable', primary: ['Triceps'], secondary: [], short: 'Triceps Pushdown' },
   'Preacher Curl': { category: 'isolation', equipment: 'dumbbell', primary: ['Biceps'], secondary: [], short: 'Preacher Curl' },
@@ -182,11 +252,36 @@ export const EXERCISE_INFO: Record<string, ExerciseInfo> = {
   'Adduktoren': { category: 'isolation', equipment: 'machine', primary: ['Adductors'], secondary: [], short: 'Hip Adduction' },
   'Waden': { category: 'isolation', equipment: 'machine', primary: ['Calves'], secondary: [], short: 'Calf Raises' },
   'Cable Crunches': { category: 'isolation', equipment: 'cable', primary: ['Abs'], secondary: [], short: 'Cable Crunches' },
-  'Kurzhantel Schulterdrücken': { category: 'compound', equipment: 'dumbbell', primary: ['Shoulders'], secondary: ['Triceps'], short: 'Dumbbell Shoulder Press' },
-  'Rudern mit Brustauflage sitzend': { category: 'compound', equipment: 'machine', primary: ['Back'], secondary: ['Biceps', 'Shoulders'], short: 'Chest-Supported Seated Row' },
-  'Latzug eng im Untergriff': { category: 'compound', equipment: 'machine', primary: ['Back'], secondary: ['Biceps'], short: 'Close-Grip Underhand Pulldown' },
-  'Seitheben Kurzhantel': { category: 'isolation', equipment: 'dumbbell', primary: ['Shoulders'], secondary: [], short: 'Dumbbell Lateral Raise' },
+  'Kurzhantel Schulterdrücken': { category: 'compound', equipment: 'dumbbell', primary: ['Front Delts'], secondary: ['Side Delts', 'Triceps'], short: 'Dumbbell Shoulder Press' },
+  'Rudern mit Brustauflage sitzend': { category: 'compound', equipment: 'machine', primary: ['Upper Back'], secondary: ['Lats', 'Biceps', 'Rear Delts'], short: 'Chest-Supported Seated Row' },
+  'Latzug eng im Untergriff': { category: 'compound', equipment: 'machine', primary: ['Lats'], secondary: ['Biceps'], short: 'Close-Grip Underhand Pulldown' },
+  'Seitheben Kurzhantel': { category: 'isolation', equipment: 'dumbbell', primary: ['Side Delts'], secondary: [], short: 'Dumbbell Lateral Raise' },
   'Back Extensions': { category: 'isolation', equipment: 'bodyweight', primary: ['Lower Back'], secondary: ['Glutes', 'Hamstrings'], short: 'Back Extensions' },
+
+  // Hypertrophie-Plan (Day 1–4)
+  'Plate-Loaded Press': { category: 'compound', equipment: 'plates', primary: ['Mid Chest'], secondary: ['Front Delts', 'Triceps'] },
+  'Upper-Chest Fly': { category: 'isolation', equipment: 'cable', primary: ['Upper Chest'], secondary: [] },
+  'Mid-Chest Fly': { category: 'isolation', equipment: 'machine', primary: ['Mid Chest'], secondary: [] },
+  'Unilateral Seated Row/Pull': { category: 'compound', equipment: 'machine', primary: ['Upper Back'], secondary: ['Lats', 'Biceps', 'Rear Delts'] },
+  'Lying Cable Lat Pulldown': { category: 'compound', equipment: 'cable', primary: ['Lats'], secondary: ['Biceps'] },
+  'Low/Triceps Pulldown': { category: 'isolation', equipment: 'cable', primary: ['Triceps'], secondary: [] },
+  'Cable Curl': { category: 'isolation', equipment: 'cable', primary: ['Biceps'], secondary: [] },
+  'Hack Squat': { category: 'compound', equipment: 'plates', primary: ['Quads'], secondary: ['Glutes'] },
+  'Hack Squat / Hack Sit': { category: 'compound', equipment: 'plates', primary: ['Quads'], secondary: ['Glutes'] },
+  'Bulgarian Split Squat': { category: 'compound', equipment: 'dumbbell', primary: ['Quads', 'Glutes'], secondary: ['Adductors'] },
+  'Seated Hamstring Curl': { category: 'isolation', equipment: 'machine', primary: ['Hamstrings'], secondary: [] },
+  'Hack Calf Raise': { category: 'isolation', equipment: 'plates', primary: ['Calves'], secondary: [] },
+  'Lat Row': { category: 'compound', equipment: 'machine', primary: ['Lats'], secondary: ['Upper Back', 'Biceps'] },
+  'Unilateral Pulldown': { category: 'compound', equipment: 'machine', primary: ['Lats'], secondary: ['Biceps'] },
+  'Low Row': { category: 'compound', equipment: 'cable', primary: ['Upper Back'], secondary: ['Lats', 'Biceps', 'Rear Delts'] },
+  'Reverse Fly': { category: 'isolation', equipment: 'machine', primary: ['Rear Delts'], secondary: ['Upper Back'] },
+  'Cable Y-Raise': { category: 'isolation', equipment: 'cable', primary: ['Side Delts'], secondary: ['Rear Delts'] },
+  'Incline Dumbbell Curl': { category: 'isolation', equipment: 'dumbbell', primary: ['Biceps'], secondary: [] },
+  'Deficit Romanian Deadlift': { category: 'compound', equipment: 'barbell', primary: ['Hamstrings', 'Glutes'], secondary: ['Lower Back'] },
+  'Weighted GHD': { category: 'isolation', equipment: 'bodyweight', primary: ['Glutes', 'Lower Back'], secondary: ['Hamstrings'] },
+  'DB Stretch Fly': { category: 'isolation', equipment: 'dumbbell', primary: ['Mid Chest'], secondary: [] },
+  'Cable Front Raise': { category: 'isolation', equipment: 'cable', primary: ['Front Delts'], secondary: [] },
+  'Overhead Triceps Extension': { category: 'isolation', equipment: 'cable', primary: ['Triceps'], secondary: [] },
 };
 
 const FALLBACK_INFO: ExerciseInfo = { category: 'isolation', equipment: 'machine', primary: [], secondary: [] };
@@ -199,48 +294,49 @@ export function shortName(name: string): string {
   return EXERCISE_INFO[name]?.short ?? name;
 }
 
-/** Alle Übungsnamen aus dem Plan, alphabetisch nach Anzeigenamen. */
+/** Anzeigename einer Übung im Plan (eigener Name im Plan hat Vorrang). */
+export function plannedName(planned: PlannedExercise): string {
+  return planned.label ?? shortName(planned.name);
+}
+
+/** Anzeigename einer Übung so, wie sie im Plan an diesem Tag heißt (z. B. „Leg Press / V-Squat“). */
+export function exerciseLabel(name: string, planId?: string, day?: DayKey): string {
+  const planned = day ? planById(planId).days[day]?.exercises.find((exercise) => exercise.name === name) : undefined;
+  return planned ? plannedName(planned) : shortName(name);
+}
+
+/** Titel eines gespeicherten Trainings nach dem Plan, mit dem es gemacht wurde. */
+export function workoutTitle(workout: { planId?: string; trainingDay: DayKey; trainingDayLabel?: string }): string {
+  return planById(workout.planId).days[workout.trainingDay]?.title ?? workout.trainingDayLabel ?? 'Training';
+}
+
+/** Alle Übungsnamen aus allen Plänen, alphabetisch nach Anzeigenamen. */
 export const ALL_EXERCISE_NAMES: string[] = [
-  ...new Set(DAY_KEYS.flatMap((day) => TRAINING_PLAN[day].exercises.map((exercise) => exercise.name))),
+  ...new Set(Object.values(PLANS).flatMap((plan) => strengthDays(plan).flatMap((key) => plan.days[key].exercises.map((exercise) => exercise.name)))),
 ].sort((a, b) => shortName(a).localeCompare(shortName(b), 'en'));
 
-/** Trainingstag, der heute dran ist – sonst der nächste im Plan. */
-export function suggestedDay(date = new Date()): DayKey {
-  const weekday = date.getDay();
-  const today = DAY_KEYS.find((key) => TRAINING_PLAN[key].weekday === weekday);
-  if (today) return today;
-  const next = DAY_KEYS.find((key) => TRAINING_PLAN[key].weekday > weekday);
-  return next ?? DAY_KEYS[0];
-}
-
 export function isDayKey(value: unknown): value is DayKey {
-  return typeof value === 'string' && value in TRAINING_PLAN;
+  return typeof value === 'string' && (WEEK as string[]).includes(value);
 }
 
-/* ---------- Ganze Woche: Kraft- und Cardio-Tage ---------- */
+/* ---------- Ganze Woche ---------- */
 
-export type WeekDayKey = DayKey | CardioDayKey;
-
-export const WEEK: WeekDayKey[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+export type WeekDayKey = DayKey;
 
 export interface WeekDayInfo {
-  key: WeekDayKey;
+  key: DayKey;
   short: string;
   tag: string;
   title: string;
-  kind: 'strength' | 'cardio';
+  kind: DayKind;
 }
 
-export function weekDayInfo(key: WeekDayKey): WeekDayInfo {
-  if (key === 'wednesday' || key === 'sunday') {
-    const day = CARDIO_DAYS[key];
-    return { key, short: day.short, tag: day.tag, title: 'Cardio', kind: 'cardio' };
-  }
-  const day = TRAINING_PLAN[key];
-  return { key, short: day.short, tag: day.tag, title: day.title, kind: 'strength' };
+export function weekDayInfo(plan: TrainingPlan, key: DayKey): WeekDayInfo {
+  const entry = plan.days[key];
+  return { key, short: entry.short, tag: entry.tag, title: entry.title, kind: entry.kind };
 }
 
 /** Wochentag von heute (Mo–So). */
-export function todaysWeekDay(date = new Date()): WeekDayKey {
+export function todaysWeekDay(date = new Date()): DayKey {
   return WEEK[(date.getDay() + 6) % 7];
 }

@@ -1,4 +1,4 @@
-import { TRAINING_PLAN } from '../domain/plan';
+import { planById } from '../domain/plan';
 import { snapshotOf, type Recommendation } from '../domain/progression';
 import type { DayKey, ExerciseEntry, RecommendationSnapshot, Workout } from '../domain/types';
 import { createId } from '../data/legacy';
@@ -23,18 +23,27 @@ export interface DraftExercise {
 
 export interface DraftSession {
   day: DayKey;
+  /** Plan, zu dem dieses Training gehört (fehlt = bisheriger Plan) */
+  planId?: string;
   date: string;
   startedAt: string;
   exercises: DraftExercise[];
+}
+
+/** Angefangene Trainings je Plan und Tag getrennt speichern (bisheriger Plan: nur der Tag – wie früher). */
+export function draftKey(planId: string, day: DayKey): string {
+  return planId === 'classic' ? day : `${planId}:${day}`;
 }
 
 export function draftFromRecommendations(
   day: DayKey,
   date: string,
   items: { name: string; recommendation: Recommendation }[],
+  planId = 'classic',
 ): DraftSession {
   return {
     day,
+    planId,
     date,
     startedAt: new Date().toISOString(),
     exercises: items.map(({ name, recommendation }) => ({
@@ -102,7 +111,8 @@ export function workoutFromDraft(draft: DraftSession, options: FinishOptions): W
     date: draft.date,
     completedAt: new Date().toISOString(),
     trainingDay: draft.day,
-    trainingDayLabel: TRAINING_PLAN[draft.day].label,
+    trainingDayLabel: planById(draft.planId).days[draft.day].label,
+    planId: draft.planId ?? 'classic',
     exercises,
   };
 }

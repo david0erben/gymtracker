@@ -3,7 +3,7 @@ import { Ban, Check, ChevronDown, Dumbbell, Ellipsis, Layers, Plus, Repeat, Skip
 import { cx, ProgressRing, Sheet } from '../../components/ui';
 import { formatShort } from '../../domain/dates';
 import { formatNumber, formatSet } from '../../domain/format';
-import { shortName } from '../../domain/plan';
+import { plannedName } from '../../domain/plan';
 import { nextStepAbove, nextStepBelow, round2 } from '../../domain/strength';
 import type { RecommendationKind } from '../../domain/types';
 import type { PlanItem } from '../../state/useDayPlan';
@@ -111,7 +111,7 @@ export function ExerciseCard({
           </ProgressRing>
           <div className="min-w-0 flex-1">
             <p className="eyebrow truncate pr-28">{muscle}</p>
-            <h3 className="mt-0.5 line-clamp-2 text-[17px] font-semibold leading-snug">{shortName(exercise.name)}</h3>
+            <h3 className="mt-0.5 line-clamp-2 text-[17px] font-semibold leading-snug">{plannedName(item.planned)}</h3>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 pr-6 text-[12.5px] text-ink-2">
               <span className="inline-flex items-center gap-1 whitespace-nowrap">
                 <Layers size={13} className="text-accent" />
@@ -285,7 +285,7 @@ export function ExerciseCard({
         </div>
       </Sheet>
 
-      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title={shortName(exercise.name)}>
+      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title={plannedName(item.planned)}>
         <div className="flex flex-col gap-1.5 pb-2">
           <MenuItem
             icon={<Plus size={18} />}

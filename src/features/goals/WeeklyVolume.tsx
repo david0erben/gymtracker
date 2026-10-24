@@ -3,7 +3,7 @@ import { ChevronDown, Minus, Plus, RotateCcw } from 'lucide-react';
 import { cx } from '../../components/ui';
 import { todayKey } from '../../domain/dates';
 import { formatNumber } from '../../domain/format';
-import { shortName, TRAINING_PLAN, type MuscleGroup } from '../../domain/plan';
+import { exerciseLabel, type MuscleGroup, type TrainingPlan } from '../../domain/plan';
 import {
   plannedRegionVolume,
   plannedWeeklyVolume,
@@ -13,7 +13,21 @@ import {
   totalWeeklySets,
   type MuscleVolume,
 } from '../../domain/volumePlan';
-import { useStore } from '../../state/store';
+import { useActivePlan, useStore } from '../../state/store';
+import type { VolumeTarget } from '../../domain/settings';
+
+/** Ziel-Range als kleine Plakette: grün, wenn die geplanten Sets im Ziel liegen. */
+function TargetBadge({ target, value }: { target: VolumeTarget | undefined; value: number }) {
+  if (!target) return null;
+  const inside = value >= target.min && value <= target.max;
+  return (
+    <span className={cx('ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold', inside ? 'bg-success/12 text-success' : 'bg-danger/12 text-danger')}>
+      Ziel {target.min === target.max ? target.min : `${target.min}–${target.max}`}
+    </span>
+  );
+}
+
+const sameMuscles = (a: MuscleGroup[], b: MuscleGroup[]) => a.length === b.length && a.every((muscle) => b.includes(muscle));
 
 const MIN_EXTRA = -6;
 const MAX_EXTRA = 10;
@@ -28,12 +42,16 @@ export function WeeklyVolume() {
   const workouts = useStore((state) => state.workouts);
   const updateSettings = useStore((state) => state.updateSettings);
   const today = todayKey();
+  const plan = useActivePlan();
   const [open, setOpen] = useState<string | null>(null);
 
   const planned = useMemo(() => plannedWeeklyVolume(settings), [settings]);
   const recent = useMemo(() => recentWeeklyVolume(workouts, today), [workouts, today]);
   const total = useMemo(() => totalWeeklySets(settings), [settings]);
   const extras = settings.volumeExtras ?? {};
+  const activeProfile = settings.profiles.find((profile) => profile.id === settings.activeProfileId);
+  const targets = activeProfile?.volumeTargets ?? [];
+  const targetFor = (muscles: MuscleGroup[]) => targets.find((target) => sameMuscles(target.muscles, muscles));
   const anyExtra = Object.values(extras).some((value) => value);
 
   const regions = useMemo(
@@ -63,6 +81,7 @@ export function WeeklyVolume() {
         <p className="mt-1 text-[13px] leading-relaxed text-ink-3">
           Geplante Sets pro Woche – gezählt werden nur Übungen, in denen der Muskel Hauptmuskel ist. Tippe einen Bereich an, um die Übungen zu
           sehen. Mit −/+ kannst du selbst Sets hinzufügen oder wegnehmen.
+          {targets.length > 0 && ' Die Ziel-Ranges kommen aus deinem Trainingsziel „' + activeProfile?.name + '“.'}
         </p>
         <div className="mt-3 flex items-end gap-2">
           <p className="display tabular text-[34px] leading-none">{total}</p>
@@ -92,7 +111,10 @@ export function WeeklyVolume() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[15px] font-semibold">{region.name}</span>
+                    <span className="text-[15px] font-semibold">
+                      {region.name}
+                      <TargetBadge target={targetFor(region.muscles)} value={region.planned} />
+                    </span>
                     <span className="tabular text-[15px] font-semibold">
                       {region.planned} <span className="text-[12px] font-medium text-ink-3">Sets</span>
                       {region.extra !== 0 && (
@@ -116,6 +138,8 @@ export function WeeklyVolume() {
                   {region.muscles.map((muscle) => (
                     <MuscleRow
                       key={muscle}
+                      plan={plan}
+                      target={region.muscles.length > 1 ? targetFor([muscle]) : undefined}
                       volume={planned[muscle]}
                       recent={recent[muscle]}
                       extra={extras[muscle] ?? 0}
@@ -123,12 +147,21 @@ export function WeeklyVolume() {
                       onChange={(value) => setExtra(muscle, value)}
                     />
                   ))}
-                  {region.muscles.length > 1 && (
-                    <p className="px-1 text-[11.5px] text-ink-3">
-                      Übungen mit mehreren Hauptmuskeln (z. B. Leg Press für Quads und Glutes) stehen bei jedem Muskel, zählen für {region.name} aber nur
-                      einmal.
-                    </p>
-                  )}
+                  {(() => {
+                    // Hinweis nur, wenn eine Übung hier mehrere Hauptmuskeln trifft (z. B. Leg Press: Quads + Glutes)
+                    const shared = [
+                      ...new Set(
+                        region.muscles
+                          .flatMap((muscle) => planned[muscle].contributions.map((item) => item.name))
+                          .filter((name, index, all) => all.indexOf(name) !== index),
+                      ),
+                    ];
+                    return shared.length ? (
+                      <p className="px-1 text-[11.5px] text-ink-3">
+                        {shared.map((name) => exerciseLabel(name, plan.id, region.muscles.flatMap((muscle) => planned[muscle].contributions).find((item) => item.name === name)?.day)).join(', ')} {shared.length === 1 ? 'steht' : 'stehen'} bei mehreren Muskeln, zählt für {region.name} aber nur einmal.
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
               )}
             </div>
@@ -140,12 +173,16 @@ export function WeeklyVolume() {
 }
 
 function MuscleRow({
+  plan,
+  target,
   volume,
   recent,
   extra,
   showName,
   onChange,
 }: {
+  plan: TrainingPlan;
+  target: VolumeTarget | undefined;
   volume: MuscleVolume;
   recent: number;
   extra: number;
@@ -156,7 +193,12 @@ function MuscleRow({
     <div className="rounded-2xl border border-line bg-surface px-3.5 py-3">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          {showName && <p className="text-[14px] font-semibold">{volume.muscle}</p>}
+          {showName && (
+            <p className="text-[14px] font-semibold">
+              {volume.muscle}
+              <TargetBadge target={target} value={volume.planned} />
+            </p>
+          )}
           <p className="tabular text-[12.5px] text-ink-3">
             {volume.planned} Sets geplant · Ø {formatNumber(recent, 1)} trainiert
           </p>
@@ -186,8 +228,8 @@ function MuscleRow({
       <ul className="mt-2.5 flex flex-col gap-1 border-t border-line pt-2.5">
         {volume.contributions.map((item) => (
           <li key={`${item.day}-${item.name}`} className="flex items-center gap-2 text-[13px]">
-            <span className="w-6 shrink-0 text-[11px] font-semibold text-ink-3">{TRAINING_PLAN[item.day].short}</span>
-            <span className="min-w-0 flex-1 truncate text-ink">{shortName(item.name)}</span>
+            <span className="w-6 shrink-0 text-[11px] font-semibold text-ink-3">{plan.days[item.day].short}</span>
+            <span className="min-w-0 flex-1 truncate text-ink">{exerciseLabel(item.name, plan.id, item.day)}</span>
             <span className="tabular shrink-0 text-ink-2">
               {item.sets} Sets
               {item.extraSets !== 0 && (

@@ -75,7 +75,7 @@ describe('weeklyVolume', () => {
   it('zählt nur Hauptmuskeln, keine halben Sets für Hilfsmuskeln', () => {
     const weeks = weeklyVolume([workout('a', '2026-10-19', 'Schrägbank Kurzhantel Bankdrücken', [[40, 8], [40, 7]])], '2026-10-19', '2026-10-24');
     expect(weeks).toHaveLength(1);
-    expect(weeks[0].sets.Chest).toBe(2);
+    expect(weeks[0].sets['Upper Chest']).toBe(2);
     expect(weeks[0].sets.Triceps).toBe(0);
   });
 });

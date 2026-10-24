@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Activity, Ban, Bike, CalendarCheck, CalendarDays, ChevronRight, Dumbbell, Flame, Footprints, SkipForward, Target, Trophy } from 'lucide-react';
-import { streakStats } from '../../domain/streaks';
+import { planTimeline, streakStats } from '../../domain/streaks';
 import { CARDIO_TYPES, formatDuration, formatPace, paceMinPerKm, speedKmh, type CardioEntry } from '../../domain/cardio';
 import { cx, EmptyState, ScreenHeader, Segmented } from '../../components/ui';
 import { addDays, formatMonth, formatWeekdayShort, parseDateKey, todayKey, weekStart } from '../../domain/dates';
 import { formatNumber } from '../../domain/format';
-import { DAY_KEYS, TRAINING_PLAN } from '../../domain/plan';
-import type { DayKey, Workout } from '../../domain/types';
-import { useStore } from '../../state/store';
+import { PLANS, strengthDays, workoutTitle, type TrainingPlan } from '../../domain/plan';
+import type { Workout } from '../../domain/types';
+import { useActivePlan, useStore } from '../../state/store';
 import { AccountButton } from '../settings/AccountButton';
 import { MonthCalendar, YearCalendar } from './Calendar';
 import { WorkoutSheet } from './WorkoutSheet';
@@ -16,6 +16,22 @@ import { CardioSheet } from './CardioSheet';
 type ListItem =
   | { kind: 'strength'; date: string; at: string; workout: Workout }
   | { kind: 'cardio'; date: string; at: string; entry: CardioEntry };
+
+/** Filter je Trainingstag: „Plan|Tag“, z. B. „hypertrophy|monday“. */
+type DayFilter = string;
+
+const dayFilter = (workout: Workout): DayFilter => `${workout.planId ?? 'classic'}|${workout.trainingDay}`;
+
+/** Tage des aktuellen Plans, danach Tage anderer Pläne, für die es Trainings gibt. */
+function dayFilters(plan: TrainingPlan, workouts: Workout[]): { value: DayFilter; label: string }[] {
+  const used = new Set(workouts.map(dayFilter));
+  const plans = [plan, ...Object.values(PLANS).filter((other) => other.id !== plan.id)];
+  return plans.flatMap((item) =>
+    strengthDays(item)
+      .filter((day) => item.id === plan.id || used.has(`${item.id}|${day}`))
+      .map((day) => ({ value: `${item.id}|${day}`, label: `${item.days[day].short} · ${item.days[day].tag}` })),
+  );
+}
 
 function summary(workout: Workout) {
   let sets = 0;
@@ -37,11 +53,12 @@ function summary(workout: Workout) {
 export function HistoryScreen() {
   const workouts = useStore((state) => state.workouts);
   const cardio = useStore((state) => state.cardio);
+  const plan = useActivePlan();
   const today = todayKey();
   const [view, setView] = useState<'month' | 'year'>('month');
   const [month, setMonth] = useState(`${today.slice(0, 7)}-01`);
   const [year, setYear] = useState(Number(today.slice(0, 4)));
-  const [filter, setFilter] = useState<DayKey | 'all' | 'cardio'>('all');
+  const [filter, setFilter] = useState<DayFilter | 'all' | 'cardio'>('all');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [openWorkout, setOpenWorkout] = useState<Workout | null>(null);
   const [openCardio, setOpenCardio] = useState<CardioEntry | null>(null);
@@ -63,13 +80,13 @@ export function HistoryScreen() {
   }, [workouts, cardio, today]);
 
   const streaks = useMemo(
-    () => streakStats(workouts.map((workout) => workout.date), cardio.map((entry) => entry.date), today),
-    [workouts, cardio, today],
+    () => streakStats(workouts.map((workout) => workout.date), cardio.map((entry) => entry.date), today, 28, planTimeline(workouts, plan)),
+    [workouts, cardio, today, plan],
   );
 
   const list = useMemo(() => {
     const items: ListItem[] = [
-      ...(filter === 'cardio' ? [] : workouts.filter((workout) => filter === 'all' || workout.trainingDay === filter).map((workout) => ({ kind: 'strength' as const, date: workout.date, at: workout.completedAt, workout }))),
+      ...(filter === 'cardio' ? [] : workouts.filter((workout) => filter === 'all' || dayFilter(workout) === filter).map((workout) => ({ kind: 'strength' as const, date: workout.date, at: workout.completedAt, workout }))),
       ...(filter === 'all' || filter === 'cardio' ? cardio.map((entry) => ({ kind: 'cardio' as const, date: entry.date, at: entry.completedAt, entry })) : []),
     ]
       .filter((item) => !selectedDate || item.date === selectedDate)
@@ -150,17 +167,17 @@ export function HistoryScreen() {
 
         <section>
           <div className="no-scrollbar -mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4">
-            {(['all', ...DAY_KEYS, 'cardio'] as const).map((key) => (
+            {[{ value: 'all', label: 'Alle' }, ...dayFilters(plan, workouts), { value: 'cardio', label: 'Cardio' }].map((option) => (
               <button
-                key={key}
+                key={option.value}
                 type="button"
-                onClick={() => setFilter(key)}
+                onClick={() => setFilter(option.value)}
                 className={cx(
                   'h-9 shrink-0 rounded-full border px-3.5 text-[13px] font-semibold transition',
-                  filter === key ? 'border-accent/50 bg-accent/20 text-ink' : 'border-line bg-glass text-ink-3 hover:text-ink-2',
+                  filter === option.value ? 'border-accent/50 bg-accent/20 text-ink' : 'border-line bg-glass text-ink-3 hover:text-ink-2',
                 )}
               >
-                {key === 'all' ? 'Alle' : key === 'cardio' ? 'Cardio' : `${TRAINING_PLAN[key].short} · ${TRAINING_PLAN[key].tag}`}
+                {option.label}
               </button>
             ))}
           </div>
@@ -226,7 +243,7 @@ export function HistoryScreen() {
                           <span className="mt-0.5 text-[10.5px] font-semibold uppercase text-ink-3">{formatWeekdayShort(workout.date)}</span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[15px] font-semibold">{TRAINING_PLAN[workout.trainingDay]?.title ?? workout.trainingDayLabel}</p>
+                          <p className="truncate text-[15px] font-semibold">{workoutTitle(workout)}</p>
                           <p className="tabular text-[12.5px] text-ink-3">
                             {info.exercises} Übungen · {info.sets} Sets · {formatNumber(Math.round(info.volume))} kg
                           </p>

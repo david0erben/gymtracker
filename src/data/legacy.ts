@@ -1,4 +1,4 @@
-import { isDayKey, TRAINING_PLAN, DAY_KEYS } from '../domain/plan';
+import { CLASSIC_PLAN, isDayKey, planById, PLANS, WEEK } from '../domain/plan';
 import { normalizeSettings, type Settings } from '../domain/settings';
 import type { BodyweightEntry, DayKey, ExerciseEntry, SetEntry, Workout } from '../domain/types';
 import { parseDateKey } from '../domain/dates';
@@ -63,7 +63,7 @@ function normalizeExercise(raw: unknown): ExerciseEntry | null {
 
 function dayFromDate(date: string): DayKey {
   const weekday = parseDateKey(date).getDay();
-  return DAY_KEYS.find((key) => TRAINING_PLAN[key].weekday === weekday) ?? 'monday';
+  return WEEK.find((key) => CLASSIC_PLAN.days[key].weekday === weekday) ?? 'monday';
 }
 
 export function normalizeWorkout(raw: unknown): Workout | null {
@@ -76,6 +76,7 @@ export function normalizeWorkout(raw: unknown): Workout | null {
       : completedAt.slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   const trainingDay = isDayKey(value.trainingDay) ? value.trainingDay : dayFromDate(date);
+  const planId = typeof value.planId === 'string' && PLANS[value.planId] ? value.planId : undefined;
   return {
     id: typeof value.id === 'string' && value.id ? value.id : createId(),
     date,
@@ -84,7 +85,8 @@ export function normalizeWorkout(raw: unknown): Workout | null {
     trainingDayLabel:
       typeof value.trainingDayLabel === 'string' && value.trainingDayLabel
         ? value.trainingDayLabel
-        : TRAINING_PLAN[trainingDay].label,
+        : planById(planId).days[trainingDay].label,
+    ...(planId ? { planId } : {}),
     exercises: value.exercises.map(normalizeExercise).filter((entry): entry is ExerciseEntry => entry !== null),
   };
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Ban, Check, SkipForward } from 'lucide-react';
 import { Button, cx, Sheet } from '../../components/ui';
 import { formatNumber } from '../../domain/format';
-import { shortName } from '../../domain/plan';
+import { exerciseLabel } from '../../domain/plan';
 import { missingExercises, type DraftSession, type FinishOptions } from '../../state/drafts';
 
 type DeviationChoice = 'today' | 'new' | 'keep';
@@ -95,7 +95,7 @@ export function FinishSheet({
           <ul className="mt-2.5 flex flex-col gap-1.5">
             {missing.map((name) => (
               <ToggleRow key={name} checked={skip.has(name)} onToggle={() => toggle(skip, name, setSkip)} icon={<SkipForward size={15} />}>
-                {shortName(name)}
+                {exerciseLabel(name, draft.planId, draft.day)}
               </ToggleRow>
             ))}
           </ul>
@@ -113,7 +113,7 @@ export function FinishSheet({
               <li key={item.name} className="rounded-2xl border border-line bg-glass px-3.5 py-3">
                 <div className="flex items-center gap-2 text-[14px]">
                   <Ban size={15} className="shrink-0 text-ink-3" />
-                  <span className="min-w-0 flex-1 truncate font-medium">{shortName(item.name)}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{exerciseLabel(item.name, draft.planId, draft.day)}</span>
                   <span className="tabular text-[12.5px] text-ink-3">
                     {formatNumber(item.top)} statt {formatNumber(item.recommended)} kg
                   </span>

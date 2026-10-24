@@ -4,8 +4,9 @@ import { cx, EmptyState, ScreenHeader, Segmented, Sheet } from '../../components
 import { goalLine, inRange, movingAverage, rangeStart, strengthSeries, trendPercent, weeklyVolume, type Range, type VolumeMetric } from '../../domain/analytics';
 import { formatShort, todayKey } from '../../domain/dates';
 import { formatNumber, formatSet } from '../../domain/format';
-import { DAY_KEYS, exerciseInfo, MUSCLE_GROUPS, shortName, TRAINING_PLAN, type MuscleGroup } from '../../domain/plan';
-import { useStore } from '../../state/store';
+import { exerciseInfo, MUSCLE_GROUPS, plannedName, shortName, strengthDays, type MuscleGroup, type TrainingPlan } from '../../domain/plan';
+import type { Workout } from '../../domain/types';
+import { useActivePlan, useStore } from '../../state/store';
 import { AccountButton } from '../settings/AccountButton';
 import { Sparkline, StrengthChart, VolumeChart } from './charts';
 
@@ -16,19 +17,29 @@ const RANGES: { value: Range; label: string }[] = [
   { value: 'all', label: 'Alle' },
 ];
 
-/** Übungen in Plan-Reihenfolge, jede nur einmal. */
-const EXERCISES: { name: string; day: string }[] = (() => {
+interface ExerciseChoice {
+  name: string;
+  label: string;
+  /** Wochentag im aktuellen Plan, leer bei Übungen aus einem anderen Plan */
+  day: string;
+}
+
+/** Übungen des aktuellen Plans in Plan-Reihenfolge, danach weitere Übungen mit Verlauf (z. B. aus dem anderen Plan). */
+function exerciseChoices(plan: TrainingPlan, workouts: Workout[]): ExerciseChoice[] {
   const seen = new Set<string>();
-  const list: { name: string; day: string }[] = [];
-  for (const day of DAY_KEYS) {
-    for (const exercise of TRAINING_PLAN[day].exercises) {
+  const list: ExerciseChoice[] = [];
+  for (const day of strengthDays(plan)) {
+    for (const exercise of plan.days[day].exercises) {
       if (seen.has(exercise.name)) continue;
       seen.add(exercise.name);
-      list.push({ name: exercise.name, day: TRAINING_PLAN[day].short });
+      list.push({ name: exercise.name, label: plannedName(exercise), day: plan.days[day].short });
     }
   }
-  return list;
-})();
+  const others = new Set<string>();
+  for (const workout of workouts) for (const entry of workout.exercises) if (!seen.has(entry.name) && entry.sets.length) others.add(entry.name);
+  const rest = [...others].sort((a, b) => shortName(a).localeCompare(shortName(b), 'en')).map((name) => ({ name, label: shortName(name), day: '' }));
+  return [...list, ...rest];
+}
 
 export function AnalyticsScreen() {
   const [mode, setMode] = useState<'strength' | 'volume'>('strength');
@@ -76,19 +87,21 @@ function StrengthSection({ range }: { range: Range }) {
   // Das Kraftziel gibt es nur im Trainingsziel „Maximalkraft“
   const goal = useStore((state) => (state.settings.activeProfileId === 'strength' ? state.settings.goal : null));
   const levelShifts = useStore((state) => state.settings.levelShifts);
+  const plan = useActivePlan();
   const today = todayKey();
   const start = rangeStart(range, today);
-  const [selected, setSelected] = useState(EXERCISES[0].name);
+  const choices = useMemo(() => exerciseChoices(plan, workouts), [plan, workouts]);
+  const [selected, setSelected] = useState(choices[0].name);
   const [picker, setPicker] = useState(false);
 
   const overview = useMemo(
     () =>
-      EXERCISES.map(({ name, day }) => {
+      choices.map(({ name, label, day }) => {
         const series = strengthSeries(workouts, name, levelShifts[name] ?? []);
         const points = inRange(series.points, start);
-        return { name, day, series, points, trend: trendPercent(points) };
+        return { name, label, day, series, points, trend: trendPercent(points) };
       }),
-    [workouts, start, levelShifts],
+    [choices, workouts, start, levelShifts],
   );
 
   const current = overview.find((item) => item.name === selected) ?? overview[0];
@@ -107,7 +120,7 @@ function StrengthSection({ range }: { range: Range }) {
         <button type="button" onClick={() => setPicker(true)} className="flex w-full items-center justify-between gap-3 rounded-2xl text-left">
           <div className="min-w-0">
             <p className="eyebrow">{exerciseInfo(current.name).primary.join(' · ')}</p>
-            <p className="line-clamp-2 text-[18px] font-semibold leading-snug">{shortName(current.name)}</p>
+            <p className="line-clamp-2 text-[18px] font-semibold leading-snug">{current.label}</p>
           </div>
           <span className="flex h-9 shrink-0 items-center gap-1 rounded-xl border border-line bg-glass-2 px-3 text-[13px] font-medium text-ink-2">
             Übung <ChevronDown size={15} />
@@ -179,7 +192,7 @@ function StrengthSection({ range }: { range: Range }) {
                 className={cx('flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition hover:bg-glass-2', item.name === current.name && 'bg-glass-2')}
               >
                 <span className="w-6 shrink-0 text-[11px] font-semibold text-ink-3">{item.day}</span>
-                <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{shortName(item.name)}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{item.label}</span>
                 <Sparkline values={item.points.map((point) => point.value)} positive={item.trend === null ? null : item.trend >= 0} />
                 <span className={cx('tabular w-14 shrink-0 text-right text-[12.5px] font-semibold', item.trend === null ? 'text-ink-4' : item.trend >= 0 ? 'text-success' : 'text-danger')}>
                   {item.trend === null ? '–' : `${item.trend >= 0 ? '+' : ''}${formatNumber(item.trend, 1)} %`}
@@ -191,28 +204,35 @@ function StrengthSection({ range }: { range: Range }) {
       </section>
 
       <Sheet open={picker} onClose={() => setPicker(false)} title="Übung wählen">
-        {DAY_KEYS.map((day) => (
-          <div key={day} className="mb-3">
-            <p className="eyebrow mb-1.5">
-              {TRAINING_PLAN[day].short} · {TRAINING_PLAN[day].title}
-            </p>
-            <div className="flex flex-col gap-1">
-              {TRAINING_PLAN[day].exercises.map((exercise) => (
-                <button
-                  key={`${day}-${exercise.name}`}
-                  type="button"
-                  onClick={() => {
-                    setSelected(exercise.name);
-                    setPicker(false);
-                  }}
-                  className={cx('flex h-11 items-center rounded-xl px-3 text-left text-[14.5px] transition hover:bg-glass-2', exercise.name === current.name ? 'bg-accent/15 text-ink' : 'text-ink-2')}
-                >
-                  {shortName(exercise.name)}
-                </button>
-              ))}
+        {[
+          ...strengthDays(plan).map((day) => ({
+            key: day,
+            title: `${plan.days[day].short} · ${plan.days[day].title}`,
+            items: plan.days[day].exercises.map((exercise) => ({ name: exercise.name, label: plannedName(exercise) })),
+          })),
+          { key: 'other', title: 'Weitere Übungen mit Verlauf', items: choices.filter((choice) => !choice.day) },
+        ]
+          .filter((group) => group.items.length)
+          .map((group) => (
+            <div key={group.key} className="mb-3">
+              <p className="eyebrow mb-1.5">{group.title}</p>
+              <div className="flex flex-col gap-1">
+                {group.items.map((exercise) => (
+                  <button
+                    key={`${group.key}-${exercise.name}`}
+                    type="button"
+                    onClick={() => {
+                      setSelected(exercise.name);
+                      setPicker(false);
+                    }}
+                    className={cx('flex h-11 items-center rounded-xl px-3 text-left text-[14.5px] transition hover:bg-glass-2', exercise.name === current.name ? 'bg-accent/15 text-ink' : 'text-ink-2')}
+                  >
+                    {exercise.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
       </Sheet>
     </div>
   );
@@ -223,7 +243,7 @@ function VolumeSection({ range }: { range: Range }) {
   const today = todayKey();
   const start = rangeStart(range, today);
   const [metric, setMetric] = useState<VolumeMetric>('sets');
-  const [muscle, setMuscle] = useState<MuscleGroup>('Chest');
+  const [muscle, setMuscle] = useState<MuscleGroup>('Upper Chest');
 
   const weeks = useMemo(() => weeklyVolume(workouts, start, today), [workouts, start, today]);
   const unit = metric === 'sets' ? 'Sets' : 'kg';

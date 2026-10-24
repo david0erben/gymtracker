@@ -3,7 +3,7 @@
  * alte Workouts lassen sich unverändert lesen, neue Felder sind alle optional.
  */
 
-export type DayKey = 'monday' | 'tuesday' | 'thursday' | 'friday' | 'saturday';
+export type DayKey = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 export interface SetEntry {
   reps: number | null;
@@ -49,6 +49,8 @@ export interface Workout {
   completedAt: string;
   trainingDay: DayKey;
   trainingDayLabel: string;
+  /** Plan, mit dem trainiert wurde (fehlt bei älteren Trainings = bisheriger Plan) */
+  planId?: string;
   exercises: ExerciseEntry[];
 }
 

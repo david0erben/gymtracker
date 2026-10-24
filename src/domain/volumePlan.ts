@@ -1,14 +1,14 @@
 import { addDays, weekStart } from './dates';
 import { weeklyVolume } from './analytics';
-import { DAY_KEYS, exerciseInfo, MUSCLE_GROUPS, TRAINING_PLAN, type MuscleGroup } from './plan';
-import { resolveExerciseConfig, type Settings } from './settings';
+import { exerciseInfo, MUSCLE_GROUPS, strengthDays, type MuscleGroup, type PlannedExercise } from './plan';
+import { activePlan, resolveExerciseConfig, type Settings } from './settings';
 import type { DayKey, Workout } from './types';
 
 /** Muskelgruppen zu Bereichen zusammengefasst – „Arms“ = Biceps + Triceps usw. */
 export const REGIONS: { name: string; muscles: MuscleGroup[] }[] = [
-  { name: 'Chest', muscles: ['Chest'] },
-  { name: 'Back', muscles: ['Back'] },
-  { name: 'Shoulders', muscles: ['Shoulders'] },
+  { name: 'Chest', muscles: ['Upper Chest', 'Mid Chest', 'Lower Chest'] },
+  { name: 'Back', muscles: ['Upper Back', 'Lats'] },
+  { name: 'Shoulders', muscles: ['Front Delts', 'Side Delts', 'Rear Delts'] },
   { name: 'Arms', muscles: ['Biceps', 'Triceps'] },
   { name: 'Legs', muscles: ['Quads', 'Hamstrings', 'Glutes', 'Adductors', 'Calves'] },
   { name: 'Core', muscles: ['Abs', 'Lower Back'] },
@@ -30,20 +30,24 @@ export interface MuscleVolume {
   contributions: Contribution[];
 }
 
+/** Alle Übungen des gewählten Plans in Wochenreihenfolge. */
+function planSlots(settings: Settings): { day: DayKey; planned: PlannedExercise }[] {
+  const plan = activePlan(settings);
+  return strengthDays(plan).flatMap((day) => plan.days[day].exercises.map((planned) => ({ day, planned })));
+}
+
 /** Geplante Sets pro Woche je Muskel – nur Übungen, in denen der Muskel Hauptmuskel ist. */
 export function plannedWeeklyVolume(settings: Settings): Record<MuscleGroup, MuscleVolume> {
   const result = Object.fromEntries(
     MUSCLE_GROUPS.map((muscle) => [muscle, { muscle, planned: 0, extra: 0, contributions: [] as Contribution[] }]),
   ) as Record<MuscleGroup, MuscleVolume>;
-  for (const day of DAY_KEYS) {
-    for (const planned of TRAINING_PLAN[day].exercises) {
-      const config = resolveExerciseConfig(planned, settings, day);
-      for (const muscle of exerciseInfo(planned.name).primary) {
-        const entry = result[muscle];
-        entry.planned += config.sets;
-        entry.extra += config.extraSets;
-        entry.contributions.push({ day, name: planned.name, sets: config.sets, extraSets: config.extraSets });
-      }
+  for (const { day, planned } of planSlots(settings)) {
+    const config = resolveExerciseConfig(planned, settings, day);
+    for (const muscle of exerciseInfo(planned.name).primary) {
+      const entry = result[muscle];
+      entry.planned += config.sets;
+      entry.extra += config.extraSets;
+      entry.contributions.push({ day, name: planned.name, sets: config.sets, extraSets: config.extraSets });
     }
   }
   return result;
@@ -56,13 +60,11 @@ export function plannedWeeklyVolume(settings: Settings): Record<MuscleGroup, Mus
 export function plannedRegionVolume(settings: Settings, muscles: MuscleGroup[]): { planned: number; extra: number } {
   let planned = 0;
   let extra = 0;
-  for (const day of DAY_KEYS) {
-    for (const exercise of TRAINING_PLAN[day].exercises) {
-      if (!exerciseInfo(exercise.name).primary.some((muscle) => muscles.includes(muscle))) continue;
-      const config = resolveExerciseConfig(exercise, settings, day);
-      planned += config.sets;
-      extra += config.extraSets;
-    }
+  for (const { day, planned: exercise } of planSlots(settings)) {
+    if (!exerciseInfo(exercise.name).primary.some((muscle) => muscles.includes(muscle))) continue;
+    const config = resolveExerciseConfig(exercise, settings, day);
+    planned += config.sets;
+    extra += config.extraSets;
   }
   return { planned, extra };
 }
@@ -93,9 +95,5 @@ export function recentWeeklyVolume(workouts: Workout[], today: string): Record<M
 
 /** Summe aller geplanten Sets pro Woche (jedes Set einmal gezählt). */
 export function totalWeeklySets(settings: Settings): number {
-  let total = 0;
-  for (const day of DAY_KEYS) {
-    for (const planned of TRAINING_PLAN[day].exercises) total += resolveExerciseConfig(planned, settings, day).sets;
-  }
-  return total;
+  return planSlots(settings).reduce((total, { day, planned }) => total + resolveExerciseConfig(planned, settings, day).sets, 0);
 }

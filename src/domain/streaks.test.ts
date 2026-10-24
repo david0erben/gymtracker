@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { streakStats } from './streaks';
+import { CLASSIC_PLAN, HYPERTROPHY_PLAN } from './plan';
+import { planTimeline, streakStats } from './streaks';
+import type { Workout } from './types';
 
 describe('streakStats', () => {
   // Mo 05.10. bis Fr 23.10.2026 an allen Krafttagen trainiert, Sa 24.10. ist heute
@@ -29,5 +31,27 @@ describe('streakStats', () => {
     const stats = streakStats(october, ['2026-10-21'], '2026-10-24');
     // Mi 21.10. Cardio, So 18.10. lag vor dem Cardio-Start
     expect(stats.current).toBe(15);
+  });
+
+  it('im Hypertrophie-Plan ist Donnerstag Ruhetag und bricht keine Serie', () => {
+    // Mo 19., Di 20., Fr 23., Sa 24.10. nach dem Hypertrophie-Plan
+    const dates = ['2026-10-19', '2026-10-20', '2026-10-23', '2026-10-24'];
+    const workouts = dates.map((date) => ({ date, planId: 'hypertrophy' }) as Workout);
+    const stats = streakStats(dates, [], '2026-10-24', 28, planTimeline(workouts, HYPERTROPHY_PLAN));
+    expect(stats.current).toBe(4);
+    // nach dem bisherigen Plan fehlt der Donnerstag
+    expect(streakStats(dates, [], '2026-10-24', 28, () => CLASSIC_PLAN).current).toBe(2);
+  });
+
+  it('der Plan gilt ab dem ersten Training damit, davor der bisherige', () => {
+    const workouts = [
+      { date: '2026-10-15', planId: undefined },
+      { date: '2026-10-19', planId: 'hypertrophy' },
+    ] as Workout[];
+    const planAt = planTimeline(workouts, HYPERTROPHY_PLAN);
+    expect(planAt('2026-10-15').id).toBe('classic');
+    expect(planAt('2026-10-17').id).toBe('classic');
+    expect(planAt('2026-10-22').id).toBe('hypertrophy');
+    expect(planAt('2026-10-30').id).toBe('hypertrophy');
   });
 });

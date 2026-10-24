@@ -13,7 +13,7 @@ Live: https://david0erben.github.io/gymtracker/
 - **Verlauf** – Kalender (Monat/Jahr), Serien, Plantreue, alle Trainings bearbeiten
 - **Analyse** – Kraftentwicklung (geschätztes 1RM) und Volumen pro Muskel
 - **Körper** – Körpergewicht mit Verlauf
-- **Ziele** – Wochenvolumen, Einstellungen pro Übung, Trainingsziele, Gewichtsabstufungen
+- **Ziele** – Wochenvolumen, Einstellungen pro Übung, Trainingsziele (Hypertrophie mit eigenem Wochenplan), Gewichtsabstufungen
 
 ## Technik
 

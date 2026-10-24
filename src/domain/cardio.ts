@@ -1,7 +1,6 @@
-/** Cardio-Einheiten (Mittwoch und Sonntag): Laufen oder Radfahren. */
+/** Cardio-Einheiten (laut Plan Mittwoch und Sonntag): Laufen oder Radfahren. */
 
 export type CardioType = 'run' | 'bike';
-export type CardioDayKey = 'wednesday' | 'sunday';
 
 export interface CardioEntry {
   id: string;
@@ -18,15 +17,6 @@ export const CARDIO_TYPES: Record<CardioType, { label: string }> = {
   run: { label: 'Laufen' },
   bike: { label: 'Radfahren' },
 };
-
-export const CARDIO_DAYS: Record<CardioDayKey, { short: string; tag: string; label: string; weekday: number }> = {
-  wednesday: { short: 'Mi', tag: 'Cardio', label: 'Mittwoch – Cardio', weekday: 3 },
-  sunday: { short: 'So', tag: 'Cardio', label: 'Sonntag – Cardio', weekday: 0 },
-};
-
-export function isCardioDay(value: unknown): value is CardioDayKey {
-  return value === 'wednesday' || value === 'sunday';
-}
 
 /** Pace in Minuten pro Kilometer, z. B. 5,7 → „5:42“. */
 export function paceMinPerKm(entry: Pick<CardioEntry, 'durationMin' | 'distanceKm'>): number | null {
