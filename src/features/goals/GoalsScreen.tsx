@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronRight, Dumbbell, Flame, Gauge, Repeat, RotateCcw, SlidersHorizontal, Target, Trash2, TrendingUp, Zap } from 'lucide-react';
 import { Button, cx, ScreenHeader, Segmented, Sheet } from '../../components/ui';
 import { goalLine, strengthSeries } from '../../domain/analytics';
 import { addMonths, formatFull, todayKey } from '../../domain/dates';
-import { formatNumber, parseDecimal, parseInteger } from '../../domain/format';
 import { exerciseInfo, planById, plannedName, strengthDays, WEEK, type EquipmentId, type PlannedExercise, type TrainingPlan } from '../../domain/plan';
 import { activePlan, DEFAULT_PROFILES, defaultSettings, overrideFor, resolveExerciseConfig, slotKey, type ExerciseOverride, type ProgressionProfile, type Settings } from '../../domain/settings';
 import type { DayKey } from '../../domain/types';
 import { useStore } from '../../state/store';
 import { AccountButton } from '../settings/AccountButton';
 import { WeeklyVolume } from './WeeklyVolume';
+import { KeypadField } from '../../components/Keypad';
 
 const PROFILE_ICON: Record<string, ReactNode> = {
   individual: <SlidersHorizontal size={20} />,
@@ -156,6 +156,7 @@ export function GoalsScreen() {
                     Stufe
                     <SmallNumber
                       decimal
+                      label={`${item.name}: Stufe in kg`}
                       value={item.step}
                       min={0.25}
                       onChange={(step) => step && update({ equipment: settings.equipment.map((entry) => (entry.id === item.id ? { ...entry, step } : entry)) })}
@@ -195,13 +196,15 @@ function Section({ title, text, children }: { title: string; text?: string; chil
   );
 }
 
-/** Kleines Zahlenfeld, das beim Verlassen übernimmt. */
+/** Kleines Zahlenfeld mit eigenem Ziffernfeld; übernimmt beim Schließen. */
 function SmallNumber({
   value,
   onChange,
   decimal = false,
   min = 0,
   placeholder = '–',
+  allowEmpty = false,
+  label,
   className,
 }: {
   value: number | null;
@@ -209,29 +212,25 @@ function SmallNumber({
   decimal?: boolean;
   min?: number;
   placeholder?: string;
+  /** Wert darf geleert werden (z. B. Reps ohne Obergrenze) */
+  allowEmpty?: boolean;
+  label?: string;
   className?: string;
 }) {
-  const display = value === null ? '' : formatNumber(value);
-  const [text, setText] = useState(display);
-  useEffect(() => setText(display), [display]);
-  const commit = () => {
-    if (text.trim() === '') {
-      onChange(null);
-      return;
-    }
-    const parsed = decimal ? parseDecimal(text) : parseInteger(text);
-    if (parsed === null || parsed < min) setText(display);
-    else onChange(parsed);
-  };
   return (
-    <input
-      inputMode={decimal ? 'decimal' : 'numeric'}
-      value={text}
+    <KeypadField
+      value={value}
+      onChange={onChange}
+      decimal={decimal}
+      min={min}
       placeholder={placeholder}
-      onChange={(event) => setText(event.target.value.replace(/[^\d.,]/g, ''))}
-      onBlur={commit}
-      onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
-      className={cx('number-input tabular h-9 w-14 rounded-xl border border-line bg-white/[0.05] text-[14px] font-semibold text-ink focus:border-accent/60', className)}
+      allowEmpty={allowEmpty}
+      live={false}
+      label={label}
+      className={cx(
+        'h-9 w-14 rounded-xl border border-line bg-white/[0.05] text-[14px] font-semibold text-ink data-[active]:border-accent/60 data-[active]:bg-accent/10',
+        className,
+      )}
     />
   );
 }
@@ -307,12 +306,12 @@ function ProfileEditor({ profile, onChange }: { profile: ProgressionProfile; onC
     <div className="mt-3 rounded-2xl border border-line bg-white/[0.03] px-3.5 py-1.5">
       <p className="pt-2 text-[13px] text-ink-2">{describe(profile)}</p>
       <Row label="Grundübungen" hint="Reps, z. B. Bankdrücken">
-        <SmallNumber value={profile.compound.min} min={1} onChange={(min) => min && onChange({ ...profile, compound: { ...profile.compound, min } })} />–
-        <SmallNumber value={profile.compound.max} min={1} onChange={(max) => onChange({ ...profile, compound: { ...profile.compound, max } })} />
+        <SmallNumber value={profile.compound.min} min={1} label="Grundübungen ab" onChange={(min) => min && onChange({ ...profile, compound: { ...profile.compound, min } })} />–
+        <SmallNumber value={profile.compound.max} min={1} allowEmpty label="Grundübungen bis" onChange={(max) => onChange({ ...profile, compound: { ...profile.compound, max } })} />
       </Row>
       <Row label="Isolationsübungen" hint="Reps, z. B. Curls">
-        <SmallNumber value={profile.isolation.min} min={1} onChange={(min) => min && onChange({ ...profile, isolation: { ...profile.isolation, min } })} />–
-        <SmallNumber value={profile.isolation.max} min={1} onChange={(max) => onChange({ ...profile, isolation: { ...profile.isolation, max } })} />
+        <SmallNumber value={profile.isolation.min} min={1} label="Isolationsübungen ab" onChange={(min) => min && onChange({ ...profile, isolation: { ...profile.isolation, min } })} />–
+        <SmallNumber value={profile.isolation.max} min={1} allowEmpty label="Isolationsübungen bis" onChange={(max) => onChange({ ...profile, isolation: { ...profile.isolation, max } })} />
       </Row>
       {profile.setsSource === 'volume' ? (
         <div className="py-2">
@@ -322,11 +321,11 @@ function ProfileEditor({ profile, onChange }: { profile: ProgressionProfile; onC
         </div>
       ) : (
         <Row label="Sets" hint="pro Übung">
-          <SmallNumber value={profile.sets} min={1} onChange={(sets) => sets && onChange({ ...profile, sets, setsSource: 'fixed' })} />
+          <SmallNumber value={profile.sets} min={1} label="Sets pro Übung" onChange={(sets) => sets && onChange({ ...profile, sets, setsSource: 'fixed' })} />
         </Row>
       )}
       <Row label="Ziel-RIR" hint="Reps in Reserve">
-        <SmallNumber value={profile.targetRir} min={0} onChange={(targetRir) => onChange({ ...profile, targetRir })} />
+        <SmallNumber value={profile.targetRir} min={0} allowEmpty label="Ziel-RIR" onChange={(targetRir) => onChange({ ...profile, targetRir })} />
       </Row>
     </div>
   );
@@ -342,8 +341,8 @@ function VolumeTargetList({ profile, onChange }: { profile: ProgressionProfile; 
           <div key={target.id} className="flex items-center justify-between gap-3 py-1.5">
             <span className="text-[13.5px] text-ink-2">{target.label}</span>
             <span className="flex items-center gap-1.5 text-[13px] text-ink-3">
-              <SmallNumber value={target.min} min={0} onChange={(min) => min !== null && update({ min, max: Math.max(min, target.max) })} />–
-              <SmallNumber value={target.max} min={0} onChange={(max) => max !== null && update({ max: Math.max(max, target.min) })} />
+              <SmallNumber value={target.min} min={0} label={`${target.label} ab`} onChange={(min) => min !== null && update({ min, max: Math.max(min, target.max) })} />–
+              <SmallNumber value={target.max} min={0} label={`${target.label} bis`} onChange={(max) => max !== null && update({ max: Math.max(max, target.min) })} />
             </span>
           </div>
         );
@@ -389,9 +388,9 @@ function GoalSection() {
         <>
           <div className="flex flex-wrap items-center gap-2 text-[15px]">
             <span className="text-ink-2">Kraft um</span>
-            <SmallNumber decimal value={goal.percent} min={0.5} onChange={(percent) => percent && setGoal({ percent })} />
+            <SmallNumber decimal value={goal.percent} min={0.5} label="Kraftziel in %" onChange={(percent) => percent && setGoal({ percent })} />
             <span className="text-ink-2">% steigern in</span>
-            <SmallNumber value={goal.months} min={1} onChange={(months) => months && setGoal({ months })} />
+            <SmallNumber value={goal.months} min={1} label="Monate" onChange={(months) => months && setGoal({ months })} />
             <span className="text-ink-2">Monaten</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[12.5px] text-ink-3">
@@ -445,8 +444,8 @@ function RulesSection() {
           </div>
           {rules.comebackEnabled && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[1.85rem] text-[13px] text-ink-3">
-              Nach mehr als <SmallNumber value={rules.comebackDays} min={3} onChange={(comebackDays) => comebackDays && set({ comebackDays })} /> Tagen mit
-              <SmallNumber value={Math.round(rules.comebackFactor * 100)} min={50} onChange={(value) => value && set({ comebackFactor: Math.min(100, value) / 100 })} /> % einsteigen
+              Nach mehr als <SmallNumber value={rules.comebackDays} min={3} label="Pause in Tagen" onChange={(comebackDays) => comebackDays && set({ comebackDays })} /> Tagen mit
+              <SmallNumber value={Math.round(rules.comebackFactor * 100)} min={50} label="Wiedereinstieg in %" onChange={(value) => value && set({ comebackFactor: Math.min(100, value) / 100 })} /> % einsteigen
             </div>
           )}
         </div>
@@ -458,8 +457,8 @@ function RulesSection() {
           </div>
           {rules.plateauEnabled && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[1.85rem] text-[13px] text-ink-3">
-              Nach <SmallNumber value={rules.plateauSessions} min={2} onChange={(plateauSessions) => plateauSessions && set({ plateauSessions })} /> Einheiten ohne Fortschritt mit
-              <SmallNumber value={Math.round(rules.plateauFactor * 100)} min={50} onChange={(value) => value && set({ plateauFactor: Math.min(100, value) / 100 })} /> % neu anlaufen
+              Nach <SmallNumber value={rules.plateauSessions} min={2} label="Einheiten ohne Fortschritt" onChange={(plateauSessions) => plateauSessions && set({ plateauSessions })} /> Einheiten ohne Fortschritt mit
+              <SmallNumber value={Math.round(rules.plateauFactor * 100)} min={50} label="Neuanlauf in %" onChange={(value) => value && set({ plateauFactor: Math.min(100, value) / 100 })} /> % neu anlaufen
             </div>
           )}
         </div>
@@ -501,11 +500,11 @@ function ExerciseSheet({ target, onClose }: { target: EditTarget | null; onClose
 
       <div className="mt-4 rounded-2xl border border-line bg-white/[0.03] px-3.5 py-1">
         <Row label="Reps-Range" hint={slot.repMin !== undefined || slot.repMax !== undefined ? 'eigener Wert' : 'aus Trainingsziel'}>
-          <SmallNumber value={config.repMin} min={1} onChange={(repMin) => setSlot({ repMin: repMin ?? undefined })} />–
-          <SmallNumber value={config.repMax} min={1} placeholder="+" onChange={(repMax) => setSlot({ repMax })} />
+          <SmallNumber value={config.repMin} min={1} label="Reps ab" onChange={(repMin) => setSlot({ repMin: repMin ?? undefined })} />–
+          <SmallNumber value={config.repMax} min={1} placeholder="+" allowEmpty label="Reps bis" onChange={(repMax) => setSlot({ repMax })} />
         </Row>
         <Row label="Sets" hint={slot.sets !== undefined ? 'eigener Wert' : 'aus Trainingsziel'}>
-          <SmallNumber value={config.baseSets} min={1} onChange={(sets) => setSlot({ sets: sets ?? undefined })} />
+          <SmallNumber value={config.baseSets} min={1} label="Sets" onChange={(sets) => setSlot({ sets: sets ?? undefined })} />
         </Row>
       </div>
 

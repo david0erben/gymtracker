@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChartSpline, ChevronDown, Target, TrendingDown, TrendingUp } from 'lucide-react';
+import { ChartSpline, ChevronDown, Target } from 'lucide-react';
 import { cx, EmptyState, ScreenHeader, Segmented, Sheet } from '../../components/ui';
 import { goalLine, inRange, movingAverage, rangeStart, strengthSeries, trendPercent, weeklyVolume, type Range, type VolumeMetric } from '../../domain/analytics';
 import { formatShort, todayKey } from '../../domain/dates';
@@ -8,7 +8,8 @@ import { exerciseInfo, MUSCLE_GROUPS, plannedName, shortName, strengthDays, type
 import type { Workout } from '../../domain/types';
 import { useActivePlan, useStore } from '../../state/store';
 import { AccountButton } from '../settings/AccountButton';
-import { Sparkline, StrengthChart, VolumeChart } from './charts';
+import { CardioSection } from './CardioSection';
+import { Sparkline, StrengthChart, TrendBadge, VolumeChart } from './charts';
 
 const RANGES: { value: Range; label: string }[] = [
   { value: '3m', label: '3 M' },
@@ -42,7 +43,7 @@ function exerciseChoices(plan: TrainingPlan, workouts: Workout[]): ExerciseChoic
 }
 
 export function AnalyticsScreen() {
-  const [mode, setMode] = useState<'strength' | 'volume'>('strength');
+  const [mode, setMode] = useState<'strength' | 'volume' | 'cardio'>('strength');
   const [range, setRange] = useState<Range>('6m');
 
   return (
@@ -55,30 +56,16 @@ export function AnalyticsScreen() {
           options={[
             { value: 'strength', label: 'Kraft' },
             { value: 'volume', label: 'Volumen' },
+            { value: 'cardio', label: 'Cardio' },
           ]}
-          className="sm:w-72"
+          className="sm:w-96"
         />
         <Segmented value={range} onChange={setRange} options={RANGES} className="sm:ml-auto sm:w-80" />
       </div>
-      {mode === 'strength' ? <StrengthSection range={range} /> : <VolumeSection range={range} />}
+      {mode === 'strength' && <StrengthSection range={range} />}
+      {mode === 'volume' && <VolumeSection range={range} />}
+      {mode === 'cardio' && <CardioSection range={range} />}
     </div>
-  );
-}
-
-function TrendBadge({ value, suffix = '' }: { value: number | null; suffix?: string }) {
-  if (value === null) return null;
-  const up = value >= 0;
-  return (
-    <span
-      className={cx(
-        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-semibold tabular',
-        up ? 'border-success/25 bg-success/10 text-success' : 'border-danger/25 bg-danger/10 text-danger',
-      )}
-    >
-      {up ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
-      {up ? '+' : ''}
-      {formatNumber(value, 1)} %{suffix}
-    </span>
   );
 }
 

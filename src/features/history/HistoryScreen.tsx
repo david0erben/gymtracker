@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react';
-import { Activity, Ban, Bike, CalendarCheck, CalendarDays, ChevronRight, Dumbbell, Flame, Footprints, SkipForward, Target, Trophy } from 'lucide-react';
+import { Ban, Bike, CalendarDays, ChevronRight, Footprints, SkipForward } from 'lucide-react';
 import { planTimeline, streakStats } from '../../domain/streaks';
 import { CARDIO_TYPES, formatDuration, formatPace, paceMinPerKm, speedKmh, type CardioEntry } from '../../domain/cardio';
 import { cx, EmptyState, ScreenHeader, Segmented } from '../../components/ui';
-import { addDays, formatMonth, formatWeekdayShort, parseDateKey, todayKey, weekStart } from '../../domain/dates';
+import { formatMonth, formatWeekdayShort, parseDateKey, todayKey } from '../../domain/dates';
 import { formatNumber } from '../../domain/format';
 import { PLANS, strengthDays, workoutTitle, type TrainingPlan } from '../../domain/plan';
 import type { Workout } from '../../domain/types';
 import { useActivePlan, useStore } from '../../state/store';
 import { AccountButton } from '../settings/AccountButton';
 import { MonthCalendar, YearCalendar } from './Calendar';
+import { HistoryStats } from './HistoryStats';
 import { WorkoutSheet } from './WorkoutSheet';
 import { CardioSheet } from './CardioSheet';
 
@@ -70,15 +71,6 @@ export function HistoryScreen() {
   }, [workouts]);
   const cardioDays = useMemo(() => new Set(cardio.map((entry) => entry.date)), [cardio]);
 
-  const stats = useMemo(() => {
-    const thisWeek = weekStart(today);
-    const eightWeeksAgo = addDays(thisWeek, -56);
-    const dates = [...workouts, ...cardio].map((item) => item.date);
-    const week = dates.filter((date) => date >= thisWeek).length;
-    const recent = dates.filter((date) => date >= eightWeeksAgo && date < thisWeek).length;
-    return { week, average: recent / 8, total: dates.length };
-  }, [workouts, cardio, today]);
-
   const streaks = useMemo(
     () => streakStats(workouts.map((workout) => workout.date), cardio.map((entry) => entry.date), today, 28, planTimeline(workouts, plan)),
     [workouts, cardio, today, plan],
@@ -105,28 +97,13 @@ export function HistoryScreen() {
     <div className="pb-36">
       <ScreenHeader eyebrow="Dein Training" title="Verlauf" right={<AccountButton />} />
 
-      <div className="grid grid-cols-3 gap-2 px-4 lg:grid-cols-6">
-        {[
-          { icon: <Flame size={15} />, label: 'Serie', value: String(streaks.current), unit: streaks.current === 1 ? 'Tag' : 'Tage' },
-          { icon: <Trophy size={15} />, label: 'Rekord', value: String(streaks.longest), unit: streaks.longest === 1 ? 'Tag' : 'Tage' },
-          { icon: <Target size={15} />, label: 'Plantreue', value: streaks.adherence === null ? '–' : String(Math.round(streaks.adherence * 100)), unit: '%' },
-          { icon: <CalendarCheck size={15} />, label: 'Woche', value: String(stats.week), unit: '' },
-          { icon: <Activity size={15} />, label: 'Ø Woche', value: formatNumber(stats.average, 1), unit: '' },
-          { icon: <Dumbbell size={15} />, label: 'Gesamt', value: String(stats.total), unit: '' },
-        ].map((stat) => (
-          <div key={stat.label} className="glass relative rounded-2xl px-3 py-3">
-            <span className="absolute right-2 top-2.5 text-accent">{stat.icon}</span>
-            <p className="eyebrow truncate pr-4 text-[10px] tracking-[0.04em]">{stat.label}</p>
-            <p className="display tabular mt-2 text-[22px] leading-none">
-              {stat.value}
-              {stat.unit && <span className="ml-1 text-[12px] text-ink-3">{stat.unit}</span>}
-            </p>
-          </div>
-        ))}
-      </div>
-      <p className="mt-2 px-5 text-[11.5px] text-ink-3">
-        Serie = geplante Trainingstage am Stück · Plantreue = letzte 4 Wochen ({streaks.doneDays} von {streaks.plannedDays} Tagen)
-      </p>
+      <HistoryStats
+        streaks={streaks}
+        today={today}
+        strength={workouts.length}
+        cardio={cardio.length}
+        firstDate={[...workouts, ...cardio].map((item) => item.date).sort()[0] ?? null}
+      />
 
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 px-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start">
         <section className="glass rounded-[var(--radius-card)] p-4 lg:sticky lg:top-4">
@@ -207,13 +184,13 @@ export function HistoryScreen() {
                           onClick={() => setOpenCardio(entry)}
                           className="glass flex items-center gap-3.5 rounded-[1.4rem] px-3.5 py-3 text-left transition hover:bg-glass-2 active:scale-[0.99]"
                         >
-                          <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-accent-2/10 text-accent-2">
+                          <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-cardio/10 text-cardio">
                             <span className="display text-[18px] leading-none">{parseDateKey(entry.date).getDate()}</span>
                             <span className="mt-0.5 text-[10.5px] font-semibold uppercase">{formatWeekdayShort(entry.date)}</span>
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="flex items-center gap-1.5 truncate text-[15px] font-semibold">
-                              {entry.type === 'run' ? <Footprints size={15} className="text-accent-2" /> : <Bike size={15} className="text-accent-2" />}
+                              {entry.type === 'run' ? <Footprints size={15} className="text-cardio" /> : <Bike size={15} className="text-cardio" />}
                               {CARDIO_TYPES[entry.type].label}
                             </p>
                             <p className="tabular text-[12.5px] text-ink-3">

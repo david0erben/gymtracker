@@ -48,12 +48,19 @@ const fullFormat = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-
 const monthFormat = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' });
 const monthShortFormat = new Intl.DateTimeFormat('de-DE', { month: 'short' });
 const weekdayShort = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
+const monthNameFormat = new Intl.DateTimeFormat('de-DE', { month: 'long' });
 
 export const formatLong = (value: string) => longFormat.format(parseDateKey(value));
 export const formatShort = (value: string) => shortFormat.format(parseDateKey(value));
 export const formatFull = (value: string) => fullFormat.format(parseDateKey(value));
 export const formatMonth = (value: string) => monthFormat.format(parseDateKey(value));
 export const formatMonthShort = (value: string) => monthShortFormat.format(parseDateKey(value)).replace('.', '');
+/** Monate eines Zeitraums, z. B. „Oktober 2026“ oder „September – Oktober 2026“. */
+export function formatMonthRange(from: string, to: string): string {
+  if (from.slice(0, 7) === to.slice(0, 7)) return formatMonth(from);
+  if (from.slice(0, 4) === to.slice(0, 4)) return `${monthNameFormat.format(parseDateKey(from))} – ${formatMonth(to)}`;
+  return `${formatMonth(from)} – ${formatMonth(to)}`;
+}
 export const formatWeekdayShort = (value: string) => weekdayShort.format(parseDateKey(value)).replace('.', '');
 
 export function relativeDay(value: string, today = todayKey()): string {

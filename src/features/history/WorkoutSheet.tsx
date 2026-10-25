@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Ban, Plus, SkipForward, Trash2, X } from 'lucide-react';
 import { Button, cx, Sheet } from '../../components/ui';
 import { formatFull } from '../../domain/dates';
-import { formatNumber, parseDecimal, parseInteger } from '../../domain/format';
+import { KeypadField } from '../../components/Keypad';
 import { exerciseLabel, workoutTitle } from '../../domain/plan';
 import type { ExerciseEntry, SetEntry, Workout } from '../../domain/types';
 import { useStore } from '../../state/store';
@@ -159,30 +159,14 @@ function CellInput({
   decimal?: boolean;
   label: string;
 }) {
-  const display = value === null ? '' : formatNumber(value);
-  const [text, setText] = useState(display);
-  const [focused, setFocused] = useState(false);
-  useEffect(() => {
-    if (!focused) setText(display);
-  }, [display, focused]);
   return (
-    <input
-      aria-label={label}
-      inputMode={decimal ? 'decimal' : 'numeric'}
-      value={text}
-      placeholder="–"
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      onChange={(event) => {
-        const next = event.target.value.replace(/[^\d.,]/g, '');
-        setText(next);
-        if (next.trim() === '') onChange(null);
-        else {
-          const parsed = decimal ? parseDecimal(next) : parseInteger(next);
-          if (parsed !== null) onChange(parsed);
-        }
-      }}
-      className="number-input tabular h-9 rounded-lg border border-line bg-white/[0.04] text-[15px] font-semibold focus:border-accent/60"
+    <KeypadField
+      value={value}
+      onChange={onChange}
+      decimal={decimal}
+      allowEmpty
+      label={label}
+      className="h-9 w-full rounded-lg border border-line bg-white/[0.04] text-[15px] font-semibold data-[active]:border-accent/60"
     />
   );
 }

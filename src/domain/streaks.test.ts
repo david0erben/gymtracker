@@ -18,6 +18,8 @@ describe('streakStats', () => {
     // nach dem ausgelassenen Do 15.10.: 16., 17., 19., 20., 22., 23.
     expect(stats.current).toBe(6);
     expect(stats.longest).toBe(7);
+    expect([stats.longestFrom, stats.longestTo]).toEqual(['2026-10-05', '2026-10-13']);
+    expect(stats.currentSince).toBe('2026-10-16');
   });
 
   it('berechnet die Plantreue', () => {

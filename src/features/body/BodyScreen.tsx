@@ -6,6 +6,7 @@ import { addDays, formatFull, parseDateKey, relativeDay, todayKey } from '../../
 import { formatNumber, parseDecimal } from '../../domain/format';
 import { round2 } from '../../domain/strength';
 import { useStore } from '../../state/store';
+import { KeypadField } from '../../components/Keypad';
 import { TrendChart } from '../analytics/charts';
 import { AccountButton } from '../settings/AccountButton';
 
@@ -62,15 +63,14 @@ export function BodyScreen() {
           <button type="button" onClick={() => step(-0.1)} aria-label="0,1 kg weniger" className="flex h-14 w-12 items-center justify-center rounded-2xl border border-line bg-white/[0.04] text-ink-2 active:scale-95">
             <Minus size={18} />
           </button>
-          <div className="flex h-14 flex-1 items-center justify-center rounded-2xl border border-line bg-white/[0.04] focus-within:border-accent/60">
-            <input
-              inputMode="decimal"
-              aria-label="Körpergewicht in kg"
-              value={text}
+          <div className="flex h-14 flex-1 items-center justify-center rounded-2xl border border-line bg-white/[0.04] has-[[data-active]]:border-accent/60">
+            <KeypadField
+              decimal
+              label="Körpergewicht in kg"
+              value={value}
               placeholder="82,5"
-              onChange={(event) => setText(event.target.value.replace(/[^\d.,]/g, ''))}
-              onKeyDown={(event) => event.key === 'Enter' && save()}
-              className="number-input display tabular w-28 text-[28px]"
+              onChange={(next) => setText(next === null ? '' : formatNumber(next))}
+              className="display h-full w-28 text-[28px]"
             />
             <span className="text-[15px] font-semibold text-ink-3">kg</span>
           </div>

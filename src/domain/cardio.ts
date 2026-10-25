@@ -1,5 +1,7 @@
 /** Cardio-Einheiten (laut Plan Mittwoch und Sonntag): Laufen oder Radfahren. */
 
+import { addDays, daysBetween, parseDateKey, weekStart } from './dates';
+
 export type CardioType = 'run' | 'bike';
 
 export interface CardioEntry {
@@ -65,4 +67,34 @@ export function normalizeCardio(raw: unknown): CardioEntry | null {
     distanceKm: number(value.distanceKm),
     avgHr: number(value.avgHr),
   };
+}
+
+export interface CardioWeek {
+  /** Montag der Woche */
+  week: string;
+  t: number;
+  /** Minuten Laufen / Radfahren */
+  run: number;
+  bike: number;
+  km: number;
+  sessions: number;
+}
+
+/** Cardio pro Woche (Minuten je Art, Kilometer, Einheiten) vom Start bis heute. */
+export function cardioWeeks(entries: CardioEntry[], start: string | null, today: string): CardioWeek[] {
+  const first = start ?? entries.map((entry) => entry.date).sort()[0];
+  if (!first) return [];
+  const firstWeek = weekStart(first);
+  const weeks: CardioWeek[] = [];
+  for (let week = firstWeek; week <= today; week = addDays(week, 7)) {
+    weeks.push({ week, t: parseDateKey(week).getTime(), run: 0, bike: 0, km: 0, sessions: 0 });
+  }
+  for (const entry of entries) {
+    const target = weeks[Math.round(daysBetween(firstWeek, weekStart(entry.date)) / 7)];
+    if (!target || entry.date < first || entry.date > today) continue;
+    target[entry.type] += entry.durationMin;
+    target.km += entry.distanceKm ?? 0;
+    target.sessions += 1;
+  }
+  return weeks;
 }

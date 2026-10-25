@@ -1,4 +1,6 @@
-import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { TrendingDown, TrendingUp } from 'lucide-react';
+import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { cx } from '../../components/ui';
 import { formatFull, formatMonthShort, formatShort, toDateKey } from '../../domain/dates';
 import { formatNumber, formatSet } from '../../domain/format';
 import type { GoalLine, StrengthMetric, StrengthPoint } from '../../domain/analytics';
@@ -237,6 +239,156 @@ export function TrendChart({ data, unit, label, height = 220 }: { data: { t: num
             fill="url(#trendFill)"
             dot={{ r: 3, fill: '#ffb870', strokeWidth: 0 }}
             activeDot={{ r: 6, fill: '#ffffff', stroke: '#fe8c35', strokeWidth: 3 }}
+            animationDuration={600}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/** Trend als Plakette: grün = besser, rot = schlechter. */
+export function TrendBadge({ value, suffix = '' }: { value: number | null; suffix?: string }) {
+  if (value === null) return null;
+  const up = value >= 0;
+  return (
+    <span
+      className={cx(
+        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-semibold tabular',
+        up ? 'border-success/25 bg-success/10 text-success' : 'border-danger/25 bg-danger/10 text-danger',
+      )}
+    >
+      {up ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+      {up ? '+' : ''}
+      {formatNumber(value, 1)} %{suffix}
+    </span>
+  );
+}
+
+/* ---------- Cardio ---------- */
+
+export const CARDIO_COLORS = { run: '#8fe9b4', bike: '#2fae6a' } as const;
+
+function CardioWeekTooltip({ active, payload }: { active?: boolean; payload?: { payload?: { t: number; run: number; bike: number } }[] }) {
+  const item = payload?.[0]?.payload;
+  if (!active || !item) return null;
+  return (
+    <div className="glass-strong rounded-2xl px-3.5 py-2.5 text-[12.5px] shadow-2xl">
+      <p className="text-ink-3">Woche ab {formatShort(toDateKey(new Date(item.t)))}</p>
+      <p className="display mt-0.5 text-[18px] text-ink">
+        {Math.round(item.run + item.bike)} <span className="text-[12px] text-ink-2">min</span>
+      </p>
+      {item.run > 0 && <p className="tabular text-ink-2">Laufen {Math.round(item.run)} min</p>}
+      {item.bike > 0 && <p className="tabular text-ink-2">Radfahren {Math.round(item.bike)} min</p>}
+    </div>
+  );
+}
+
+/** Cardio-Minuten pro Woche, Laufen und Radfahren gestapelt. */
+export function CardioWeekChart({ data, height = 200 }: { data: { t: number; run: number; bike: number }[]; height?: number }) {
+  const spanDays = ((data.at(-1)?.t ?? 0) - (data[0]?.t ?? 0)) / 86_400_000;
+  return (
+    <div style={{ height }} className="w-full" role="img" aria-label="Diagramm: Cardio-Minuten pro Woche">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 12, right: 10, bottom: 0, left: 0 }}>
+          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
+          <XAxis dataKey="t" tickFormatter={(t: number) => dateTick(t, spanDays)} tick={AXIS} axisLine={false} tickLine={false} minTickGap={24} />
+          <YAxis tick={AXIS} axisLine={false} tickLine={false} width={36} allowDecimals={false} />
+          <Tooltip content={<CardioWeekTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+          <Bar dataKey="run" stackId="cardio" fill={CARDIO_COLORS.run} radius={[3, 3, 0, 0]} maxBarSize={28} animationDuration={600} />
+          <Bar dataKey="bike" stackId="cardio" fill={CARDIO_COLORS.bike} radius={[3, 3, 0, 0]} maxBarSize={28} animationDuration={600} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function CardioPointTooltip({
+  active,
+  payload,
+  format,
+  unit,
+  label,
+}: {
+  active?: boolean;
+  payload?: { payload?: { t: number; value: number } }[];
+  format: (value: number) => string;
+  unit: string;
+  label: string;
+}) {
+  const item = payload?.[0]?.payload;
+  if (!active || !item) return null;
+  return (
+    <div className="glass-strong rounded-2xl px-3.5 py-2.5 text-[12.5px] shadow-2xl">
+      <p className="text-ink-3">{formatFull(toDateKey(new Date(item.t)))}</p>
+      <p className="display mt-0.5 text-[18px] text-ink">
+        {format(item.value)} <span className="text-[12px] text-ink-2">{unit}</span>
+      </p>
+      <p className="text-ink-3">{label}</p>
+    </div>
+  );
+}
+
+/** Verlauf je Einheit (Pace, Tempo oder Puls). `invert`: kleiner ist besser, Achse umgedreht. */
+export function CardioTrendChart({
+  data,
+  format,
+  unit,
+  label,
+  invert = false,
+  height = 200,
+}: {
+  data: { t: number; value: number }[];
+  format: (value: number) => string;
+  unit: string;
+  label: string;
+  invert?: boolean;
+  height?: number;
+}) {
+  const min = data[0]?.t ?? 0;
+  const max = data.at(-1)?.t ?? 0;
+  const spanDays = (max - min) / 86_400_000;
+  return (
+    <div style={{ height }} className="w-full" role="img" aria-label={`Diagramm: ${label}`}>
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={data} margin={{ top: 12, right: 10, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id="cardioFill" x1="0" y1={invert ? '1' : '0'} x2="0" y2={invert ? '0' : '1'}>
+              <stop offset="0%" stopColor={CARDIO_COLORS.run} stopOpacity={0.35} />
+              <stop offset="100%" stopColor={CARDIO_COLORS.run} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
+          <XAxis
+            dataKey="t"
+            type="number"
+            scale="time"
+            domain={[min, max]}
+            tickFormatter={(t: number) => dateTick(t, spanDays)}
+            tick={AXIS}
+            axisLine={false}
+            tickLine={false}
+            minTickGap={28}
+          />
+          <YAxis
+            reversed={invert}
+            domain={[(dataMin: number) => dataMin * 0.95, (dataMax: number) => dataMax * 1.05]}
+            tickFormatter={format}
+            tick={AXIS}
+            axisLine={false}
+            tickLine={false}
+            width={40}
+          />
+          <Tooltip content={<CardioPointTooltip format={format} unit={unit} label={label} />} cursor={{ stroke: 'rgba(255,255,255,0.18)', strokeWidth: 1 }} />
+          <Area
+            type="monotone"
+            dataKey="value"
+            baseValue={invert ? 'dataMax' : 'dataMin'}
+            stroke={CARDIO_COLORS.run}
+            strokeWidth={3}
+            fill="url(#cardioFill)"
+            dot={{ r: 3, fill: CARDIO_COLORS.run, strokeWidth: 0 }}
+            activeDot={{ r: 6, fill: '#ffffff', stroke: CARDIO_COLORS.bike, strokeWidth: 3 }}
             animationDuration={600}
           />
         </ComposedChart>

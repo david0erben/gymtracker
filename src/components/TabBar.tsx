@@ -16,8 +16,11 @@ export function TabBar() {
   const setTab = useStore((state) => state.setTab);
 
   return (
-    <nav className="safe-bottom pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4" aria-label="Hauptnavigation">
-      <div className="glass-strong pointer-events-auto mb-2 flex w-full max-w-md items-center justify-between rounded-[1.75rem] px-2 py-1.5 shadow-[0_20px_50px_-20px_rgb(0_0_0_/_0.9)]">
+    <nav
+      className="glass-strong tabbar-bottom fixed inset-x-0 bottom-0 z-40 rounded-t-[1.75rem] border-b-0 shadow-[0_-12px_40px_-20px_rgb(0_0_0_/_0.9)]"
+      aria-label="Hauptnavigation"
+    >
+      <div className="mx-auto flex w-full max-w-md items-center justify-between px-3 pt-1.5">
         {ITEMS.map((item) => {
           const active = item.tab === tab;
           if (item.tab === 'training') {

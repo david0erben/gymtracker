@@ -13,11 +13,18 @@ import type { Workout } from './types';
 
 export interface StreakStats {
   current: number;
+  /** erster Tag der aktuellen Serie */
+  currentSince: string | null;
   longest: number;
+  /** Zeitraum der längsten Serie (erster und letzter Trainingstag) */
+  longestFrom: string | null;
+  longestTo: string | null;
   /** Anteil erledigter geplanter Tage im Zeitraum (0–1), null ohne geplante Tage */
   adherence: number | null;
   plannedDays: number;
   doneDays: number;
+  /** Zeitraum der Plantreue */
+  adherenceFrom: string | null;
 }
 
 type PlanAt = (date: string) => TrainingPlan;
@@ -58,17 +65,27 @@ export function streakStats(
   const trained = new Set([...trainingDates, ...cardioDates]);
   const cardioSince = cardioDates.length ? [...cardioDates].sort()[0] : null;
   const first = [...trained].sort()[0];
-  if (!first) return { current: 0, longest: 0, adherence: null, plannedDays: 0, doneDays: 0 };
+  if (!first)
+    return { current: 0, currentSince: null, longest: 0, longestFrom: null, longestTo: null, adherence: null, plannedDays: 0, doneDays: 0, adherenceFrom: null };
 
   let run = 0;
+  let runStart: string | null = null;
   let longest = 0;
+  let longestFrom: string | null = null;
+  let longestTo: string | null = null;
   for (let date = first; date <= today; date = addDays(date, 1)) {
     if (!isPlannedDay(date, cardioSince, planAt)) continue;
     if (trained.has(date)) {
       run += 1;
-      longest = Math.max(longest, run);
+      if (run === 1) runStart = date;
+      if (run > longest) {
+        longest = run;
+        longestFrom = runStart;
+        longestTo = date;
+      }
     } else if (date !== today) {
       run = 0;
+      runStart = null;
     }
   }
 
@@ -76,7 +93,8 @@ export function streakStats(
   let plannedDays = 0;
   let doneDays = 0;
   const start = addDays(today, -(adherenceDays - 1));
-  for (let date = start < first ? first : start; date <= today; date = addDays(date, 1)) {
+  const adherenceFrom = start < first ? first : start;
+  for (let date = adherenceFrom; date <= today; date = addDays(date, 1)) {
     if (!isPlannedDay(date, cardioSince, planAt)) continue;
     if (date === today && !trained.has(date)) continue;
     plannedDays += 1;
@@ -85,10 +103,14 @@ export function streakStats(
 
   return {
     current: run,
+    currentSince: run ? runStart : null,
     longest,
+    longestFrom,
+    longestTo,
     adherence: plannedDays ? doneDays / plannedDays : null,
     plannedDays,
     doneDays,
+    adherenceFrom,
   };
 }
 

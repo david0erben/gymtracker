@@ -3,7 +3,8 @@ import { Trash2 } from 'lucide-react';
 import { Button, cx, Sheet } from '../../components/ui';
 import { CARDIO_TYPES, formatPace, paceMinPerKm, speedKmh, type CardioEntry, type CardioType } from '../../domain/cardio';
 import { formatFull } from '../../domain/dates';
-import { formatNumber, parseDecimal, parseInteger } from '../../domain/format';
+import { formatNumber } from '../../domain/format';
+import { KeypadField } from '../../components/Keypad';
 import { useStore } from '../../state/store';
 
 /** Cardio-Einheit ansehen, korrigieren oder löschen. */
@@ -75,13 +76,13 @@ export function CardioSheet({ entry, onClose }: { entry: CardioEntry | null; onC
           />
         </Field>
         <Field label="Dauer (min)">
-          <Cell value={edited.durationMin} onChange={(value) => setEdited({ ...edited, durationMin: value ?? 0 })} />
+          <Cell label="Minuten" value={edited.durationMin} onChange={(value) => setEdited({ ...edited, durationMin: value ?? 0 })} />
         </Field>
         <Field label="Distanz (km)">
-          <Cell decimal value={edited.distanceKm} onChange={(value) => setEdited({ ...edited, distanceKm: value })} />
+          <Cell decimal label="Km" value={edited.distanceKm} onChange={(value) => setEdited({ ...edited, distanceKm: value })} />
         </Field>
         <Field label="Ø Puls">
-          <Cell value={edited.avgHr} onChange={(value) => setEdited({ ...edited, avgHr: value })} />
+          <Cell label="Ø Puls" value={edited.avgHr} onChange={(value) => setEdited({ ...edited, avgHr: value })} />
         </Field>
       </div>
       <p className="mt-3 text-center text-[13px] text-ink-3">
@@ -100,25 +101,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Cell({ value, onChange, decimal = false }: { value: number | null; onChange: (value: number | null) => void; decimal?: boolean }) {
-  const display = value === null ? '' : formatNumber(value);
-  const [text, setText] = useState(display);
-  useEffect(() => setText(display), [display]);
+function Cell({ value, onChange, decimal = false, label }: { value: number | null; onChange: (value: number | null) => void; decimal?: boolean; label?: string }) {
   return (
-    <input
-      inputMode={decimal ? 'decimal' : 'numeric'}
-      value={text}
-      placeholder="–"
-      onChange={(event) => {
-        const next = event.target.value.replace(/[^\d.,]/g, '');
-        setText(next);
-        if (!next.trim()) onChange(null);
-        else {
-          const parsed = decimal ? parseDecimal(next) : parseInteger(next);
-          if (parsed !== null) onChange(parsed);
-        }
-      }}
-      className="number-input tabular h-9 w-20 rounded-lg border border-line bg-white/[0.04] text-[15px] font-semibold"
+    <KeypadField
+      value={value}
+      onChange={onChange}
+      decimal={decimal}
+      allowEmpty
+      label={label}
+      className="h-9 w-20 rounded-lg border border-line bg-white/[0.04] text-[15px] font-semibold data-[active]:border-accent/60"
     />
   );
 }

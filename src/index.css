@@ -24,6 +24,8 @@
   --color-accent-deep: #ff743e;
   --color-on-accent: #0f0f0f;
   --color-success: #18c152;
+  /* Cardio: hellere Abstufung vom Grün – positiv, aber vom Krafttraining unterscheidbar */
+  --color-cardio: #8fe9b4;
   --color-danger: #ff4d42;
 
   --radius-card: 1.25rem;
@@ -38,8 +40,17 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* iOS 26: Home-Bildschirm-Apps bekommen sonst einen zu kurzen Viewport (WebKit-Bug 301108) */
+  @media (display-mode: standalone) {
+    html {
+      min-height: min(100lvh, calc(100% + env(safe-area-inset-top)));
+    }
+  }
+
   body {
     min-height: 100dvh;
+    /* Platz für das eigene Ziffernfeld, solange es offen ist */
+    padding-bottom: var(--keypad-space, 0px);
     background: var(--color-bg);
     font-family: var(--font-sans);
     font-feature-settings: 'cv11', 'ss01';
@@ -118,12 +129,22 @@
     color: transparent;
   }
 
+  /*
+   * Oben: Bei durchsichtiger Statusleiste (ältere Home-Bildschirm-Installation) legt iOS 26 einen
+   * Unschärfe-Verlauf etwa 40 pt unter die Statusleiste – dann rutscht der Inhalt so weit nach unten.
+   * Bei undurchsichtiger Statusleiste ist der Abstand 0 und es bleibt bei 0,75rem.
+   */
   .safe-top {
-    padding-top: max(env(safe-area-inset-top), 0.75rem);
+    padding-top: max(0.75rem, calc(env(safe-area-inset-top) + min(env(safe-area-inset-top), 2.75rem)));
   }
 
   .safe-bottom {
     padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+
+  /* Tab-Leiste sitzt am unteren Rand, die Symbole knapp über dem Home-Balken */
+  .tabbar-bottom {
+    padding-bottom: max(0.5rem, calc(env(safe-area-inset-bottom) - 0.75rem));
   }
 
   .no-scrollbar {
@@ -165,6 +186,16 @@
   to {
     transform: none;
   }
+}
+
+@keyframes keypad-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.keypad-caret {
+  animation: keypad-blink 1s step-end infinite;
 }
 
 @keyframes fade-in {

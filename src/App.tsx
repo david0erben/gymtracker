@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Dumbbell } from 'lucide-react';
+import { Keypad } from './components/Keypad';
 import { TabBar } from './components/TabBar';
 import { ToastHost } from './components/ToastHost';
 import { cx } from './components/ui';
@@ -58,6 +59,7 @@ export function App() {
         </div>
       )}
       {hydrated && <TabBar />}
+      <Keypad />
       <ToastHost />
     </>
   );

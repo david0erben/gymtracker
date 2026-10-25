@@ -85,13 +85,14 @@ export function MonthCalendar({
               {trained && (
                 <span className="absolute bottom-1 flex gap-0.5">
                   {strength && <span className="h-1.5 w-1.5 rounded-full bg-success" />}
-                  {cardio && <span className="h-1.5 w-1.5 rounded-full bg-accent-2" />}
+                  {cardio && <span className="h-1.5 w-1.5 rounded-full bg-cardio" />}
                 </span>
               )}
             </button>
           );
         })}
       </div>
+      <Legend />
     </div>
   );
 }
@@ -145,7 +146,7 @@ export function YearCalendar({
                       title={day}
                       className={cx(
                         'aspect-square rounded-[3px]',
-                        trainedDays.has(day) ? 'bg-success' : cardioDays.has(day) ? 'bg-accent-2' : day > today ? 'bg-white/[0.03]' : 'bg-white/[0.07]',
+                        trainedDays.has(day) ? 'bg-success' : cardioDays.has(day) ? 'bg-cardio' : day > today ? 'bg-white/[0.03]' : 'bg-white/[0.07]',
                       )}
                     />
                   ) : (
@@ -157,6 +158,20 @@ export function YearCalendar({
           );
         })}
       </div>
+      <Legend />
+    </div>
+  );
+}
+
+function Legend() {
+  return (
+    <div className="mt-3 flex justify-center gap-4 text-[11.5px] text-ink-3">
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-success" /> Kraft
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-cardio" /> Cardio
+      </span>
     </div>
   );
 }

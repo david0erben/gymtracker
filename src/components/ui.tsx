@@ -146,7 +146,7 @@ export function Sheet({
             <X size={20} />
           </IconButton>
         </div>
-        <div className="no-scrollbar overflow-y-auto px-5 pb-4">{children}</div>
+        <div className="no-scrollbar overflow-y-auto px-5 pb-[calc(1rem+var(--keypad-space,0px))]">{children}</div>
         {footer && <div className="border-t border-line px-5 pb-2 pt-4">{footer}</div>}
       </div>
     </div>,
