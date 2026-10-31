@@ -1,7 +1,7 @@
 import { addDays, addMonths, daysBetween, parseDateKey, weekStart } from './dates';
 import { exerciseInfo, MUSCLE_GROUPS, type MuscleGroup } from './plan';
 import type { StrengthGoal } from './settings';
-import { exerciseSessions, hasLoad, isWorkingSet, median, plausibleSets, sessionE1rm } from './strength';
+import { exerciseSessions, hasLoad, isMainSet, isWorkingSet, median, plausibleSets, sessionE1rm } from './strength';
 import type { SetEntry, Workout } from './types';
 
 /* ---------- Kraftentwicklung ---------- */
@@ -172,8 +172,10 @@ export function weeklyVolume(workouts: Workout[], start: string | null, today: s
     if (!bucket) continue;
     for (const entry of workout.exercises) {
       if (entry.skipped) continue;
-      const sets = plausibleSets(entry.sets.filter(isWorkingSet));
-      const kg = entry.excluded ? 0 : sets.reduce((sum, set) => sum + (set.weight ?? 0) * (set.reps ?? 0), 0);
+      // Dropsätze zählen nicht als eigene Sets, das bewegte Gewicht aber schon
+      const sets = plausibleSets(entry.sets.filter(isMainSet));
+      const drops = entry.sets.filter((set) => isWorkingSet(set) && set.drop);
+      const kg = entry.excluded ? 0 : [...sets, ...drops].reduce((sum, set) => sum + (set.weight ?? 0) * (set.reps ?? 0), 0);
       for (const muscle of exerciseInfo(entry.name).primary) {
         bucket.sets[muscle] += sets.length;
         bucket.tonnage[muscle] += kg;

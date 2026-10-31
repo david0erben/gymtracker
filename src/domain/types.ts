@@ -11,12 +11,15 @@ export interface SetEntry {
   weight: number | null;
   /** Reps in Reserve, optional. */
   rir?: number | null;
+  /** Dropsatz: gehört zum Satz davor, zählt nicht als eigenes Set */
+  drop?: boolean;
 }
 
 export type RecommendationKind =
   | 'first'
   | 'increase'
   | 'reps'
+  | 'hold'
   | 'decrease'
   | 'comeback'
   | 'deload';
@@ -26,6 +29,8 @@ export interface RecommendationSnapshot {
   kind: RecommendationKind;
   weight: number | null;
   reps: number[];
+  /** Gewicht je Satz, nur wenn die Sätze unterschiedlich schwer geplant waren */
+  weights?: (number | null)[];
 }
 
 export interface ExerciseEntry {

@@ -3,8 +3,10 @@ import { ChevronRight, Dumbbell, Flame, Gauge, Repeat, RotateCcw, SlidersHorizon
 import { Button, cx, ScreenHeader, Segmented, Sheet } from '../../components/ui';
 import { goalLine, strengthSeries } from '../../domain/analytics';
 import { addMonths, formatFull, todayKey } from '../../domain/dates';
+import { formatNumber } from '../../domain/format';
 import { exerciseInfo, planById, plannedName, strengthDays, WEEK, type EquipmentId, type PlannedExercise, type TrainingPlan } from '../../domain/plan';
 import { activePlan, DEFAULT_PROFILES, defaultSettings, overrideFor, resolveExerciseConfig, slotKey, type ExerciseOverride, type ProgressionProfile, type Settings } from '../../domain/settings';
+import { firstStep, round2 } from '../../domain/strength';
 import type { DayKey } from '../../domain/types';
 import { useStore } from '../../state/store';
 import { AccountButton } from '../settings/AccountButton';
@@ -30,6 +32,33 @@ function plannedExercises(plan: TrainingPlan): PlannedExercise[] {
     }
   }
   return list;
+}
+
+const STEP_ROW = 'grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem] items-center gap-2';
+
+/** Die ersten Gewichte, die sich aus Stufe und Startgewicht ergeben. */
+function ladder(step: number, base: number): string {
+  const first = firstStep(step, base);
+  return `${[0, 1, 2, 3].map((index) => formatNumber(round2(first + index * step))).join(' · ')} kg …`;
+}
+
+function StepHeader() {
+  return (
+    <div className={cx(STEP_ROW, 'px-3.5 pb-1.5')}>
+      <span />
+      <span className="eyebrow text-center">Stufe</span>
+      <span className="eyebrow text-center">Start</span>
+    </div>
+  );
+}
+
+/** Schreibt Einstellungen einer Übung; leere Werte fallen raus, damit wieder die Standards gelten. */
+function patchOverride(settings: Settings, key: string, patch: Partial<ExerciseOverride>): Settings {
+  const next: ExerciseOverride = { ...(settings.exercises[key] ?? {}), ...patch };
+  for (const field of Object.keys(next) as (keyof ExerciseOverride)[]) if (next[field] === undefined) delete next[field];
+  const exercises = { ...settings.exercises, [key]: next };
+  if (!Object.keys(next).length) delete exercises[key];
+  return { ...settings, exercises };
 }
 
 interface EditTarget {
@@ -147,13 +176,19 @@ export function GoalsScreen() {
         )}
 
         {section === 'equipment' && (
-          <Section title="Gewichtsabstufungen" text="Kleinste Gewichtsstufe pro Gerät. Gilt für alle Übungen an diesem Gerät – danach richten sich die Gewichtsempfehlungen und die −/+ Tasten.">
-            <div className="flex flex-col gap-1.5">
-              {settings.equipment.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-line bg-white/[0.03] px-3.5 py-2">
-                  <span className="flex-1 text-[14px] font-medium">{item.name}</span>
-                  <label className="flex items-center gap-1 text-[12px] text-ink-3">
-                    Stufe
+          <>
+            <Section
+              title="Gewichtsabstufungen"
+              text="Stufe = kleinster Gewichtsschritt, Start = leichtestes Gewicht am Gerät. Danach richten sich die Empfehlungen und die −/+ Tasten."
+            >
+              <StepHeader />
+              <div className="flex flex-col gap-1.5">
+                {settings.equipment.map((item) => (
+                  <div key={item.id} className={cx(STEP_ROW, 'rounded-2xl border border-line bg-white/[0.03] px-3.5 py-2')}>
+                    <div className="min-w-0">
+                      <p className="truncate text-[14px] font-medium">{item.name}</p>
+                      <p className="tabular truncate text-[11.5px] text-ink-3">{ladder(item.step, item.base)}</p>
+                    </div>
                     <SmallNumber
                       decimal
                       label={`${item.name}: Stufe in kg`}
@@ -161,12 +196,61 @@ export function GoalsScreen() {
                       min={0.25}
                       onChange={(step) => step && update({ equipment: settings.equipment.map((entry) => (entry.id === item.id ? { ...entry, step } : entry)) })}
                     />
-                    kg
-                  </label>
-                </div>
-              ))}
-            </div>
-          </Section>
+                    <SmallNumber
+                      decimal
+                      label={`${item.name}: Startgewicht in kg`}
+                      value={item.base}
+                      min={0}
+                      onChange={(base) => base !== null && update({ equipment: settings.equipment.map((entry) => (entry.id === item.id ? { ...entry, base } : entry)) })}
+                    />
+                  </div>
+                ))}
+              </div>
+            </Section>
+
+            <Section
+              title="Pro Übung"
+              text={`Eigene Stufe und eigenes Startgewicht für einzelne Übungen, z. B. wenn deine Kabeltürme unterschiedlich sind. Mit „–“ im Ziffernfeld gilt wieder der Wert vom Gerät. Plan: ${plan.name}.`}
+            >
+              <StepHeader />
+              <ul className="-mx-1 flex flex-col">
+                {plannedExercises(plan).map((planned) => {
+                  const config = resolveExerciseConfig(planned, settings);
+                  const own = settings.exercises[planned.name] ?? {};
+                  const custom = own.step !== undefined || own.base !== undefined;
+                  return (
+                    <li key={planned.name} className={cx(STEP_ROW, 'rounded-2xl px-2.5 py-1.5')}>
+                      <div className="min-w-0">
+                        <p className="truncate text-[14px] font-medium">
+                          {plannedName(planned)}
+                          {custom && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent align-middle" />}
+                        </p>
+                        <p className="tabular truncate text-[11.5px] text-ink-3">{custom ? ladder(config.step, config.base) : config.equipment.name}</p>
+                      </div>
+                      <SmallNumber
+                        decimal
+                        allowEmpty
+                        label={`${plannedName(planned)}: Stufe in kg`}
+                        value={config.step}
+                        min={0.25}
+                        className={own.step === undefined ? 'text-ink-3' : undefined}
+                        onChange={(step) => updateSettings((current) => patchOverride(current, planned.name, { step: step ?? undefined }))}
+                      />
+                      <SmallNumber
+                        decimal
+                        allowEmpty
+                        label={`${plannedName(planned)}: Startgewicht in kg`}
+                        value={config.base}
+                        min={0}
+                        className={own.base === undefined ? 'text-ink-3' : undefined}
+                        onChange={(base) => updateSettings((current) => patchOverride(current, planned.name, { base: base ?? undefined }))}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            </Section>
+          </>
         )}
 
         <Button
@@ -479,17 +563,9 @@ function ExerciseSheet({ target, onClose }: { target: EditTarget | null; onClose
   const slot = settings.exercises[key] ?? {};
   const general = settings.exercises[planned.name] ?? {};
 
-  const write = (key: string, patch: Partial<ExerciseOverride>) =>
-    updateSettings((current) => {
-      const next: ExerciseOverride = { ...(current.exercises[key] ?? {}), ...patch };
-      for (const field of Object.keys(next) as (keyof ExerciseOverride)[]) if (next[field] === undefined) delete next[field];
-      const exercises = { ...current.exercises, [key]: next };
-      if (!Object.keys(next).length) delete exercises[key];
-      return { ...current, exercises };
-    });
   // Reps, Sets und Trainingsziel gelten nur für diesen Tag, das Gerät für die Übung insgesamt
-  const setSlot = (patch: Partial<ExerciseOverride>) => write(key, patch);
-  const setGeneral = (patch: Partial<ExerciseOverride>) => write(planned.name, patch);
+  const setSlot = (patch: Partial<ExerciseOverride>) => updateSettings((current) => patchOverride(current, key, patch));
+  const setGeneral = (patch: Partial<ExerciseOverride>) => updateSettings((current) => patchOverride(current, planned.name, patch));
   const custom = Object.keys(slot).length > 0 || Object.keys(general).length > 0;
 
   return (
@@ -523,6 +599,15 @@ function ExerciseSheet({ target, onClose }: { target: EditTarget | null; onClose
             {item.name}
           </button>
         ))}
+      </div>
+
+      <div className="mt-2 rounded-2xl border border-line bg-white/[0.03] px-3.5 py-1">
+        <Row label="Gewichtsstufe" hint={general.step !== undefined ? 'eigener Wert' : 'vom Gerät'}>
+          <SmallNumber decimal allowEmpty label="Gewichtsstufe in kg" value={config.step} min={0.25} onChange={(step) => setGeneral({ step: step ?? undefined })} /> kg
+        </Row>
+        <Row label="Startgewicht" hint={general.base !== undefined ? 'eigener Wert' : 'vom Gerät'}>
+          <SmallNumber decimal allowEmpty label="Startgewicht in kg" value={config.base} min={0} onChange={(base) => setGeneral({ base: base ?? undefined })} /> kg
+        </Row>
       </div>
 
       <p className="eyebrow mb-1.5 mt-4">Trainingsziel für diese Übung</p>

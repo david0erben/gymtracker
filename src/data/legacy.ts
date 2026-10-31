@@ -40,6 +40,7 @@ export function normalizeSet(raw: unknown): SetEntry {
   };
   const rir = toNumber(value.rir);
   if (rir !== null) set.rir = Math.max(0, Math.trunc(rir));
+  if (value.drop === true) set.drop = true;
   return set;
 }
 

@@ -8,12 +8,13 @@ Live: https://david0erben.github.io/gymtracker/
 
 ## Funktionen
 
-- **Training** – Sets mit vorausgefüllter Empfehlung (doppelte Progression innerhalb deiner Rep-Range),
-  Eingabe per −/+ oder Ziffernfeld, Cardio-Tage (Laufen/Radfahren mit Pace)
+- **Training** – Sets mit vorausgefüllter Empfehlung (doppelte Progression innerhalb deiner Rep-Range,
+  neue Bestleistungen werden erst bestätigt, schwerere Gewichte kommen Satz für Satz), Dropsätze,
+  Eingabe per −/+ oder eigenem Ziffernfeld, Cardio-Tage (Laufen/Radfahren mit Pace)
 - **Verlauf** – Kalender (Monat/Jahr), Serien, Plantreue, alle Trainings bearbeiten
 - **Analyse** – Kraftentwicklung (geschätztes 1RM) und Volumen pro Muskel
 - **Körper** – Körpergewicht mit Verlauf
-- **Ziele** – Wochenvolumen, Einstellungen pro Übung, Trainingsziele (Hypertrophie mit eigenem Wochenplan), Gewichtsabstufungen
+- **Ziele** – Wochenvolumen, Einstellungen pro Übung, Trainingsziele (Hypertrophie mit eigenem Wochenplan), Gewichtsstufen und Startgewicht pro Gerät und pro Übung
 
 ## Technik
 

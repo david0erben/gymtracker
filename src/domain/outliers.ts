@@ -1,5 +1,5 @@
 import { classifySeries } from './levels';
-import { compareWorkouts, hasLoad, isWorkingSet, median, plausibleSets, sessionE1rm } from './strength';
+import { compareWorkouts, hasLoad, isMainSet, median, plausibleSets, sessionE1rm } from './strength';
 import type { Workout } from './types';
 
 /**
@@ -53,7 +53,7 @@ function seriesByExercise(workouts: Workout[]): Map<string, Point[]> {
   for (const workout of [...workouts].sort(compareWorkouts)) {
     for (const entry of workout.exercises) {
       if (entry.skipped) continue;
-      const value = sessionE1rm(plausibleSets(entry.sets.filter(isWorkingSet)));
+      const value = sessionE1rm(plausibleSets(entry.sets.filter(isMainSet)));
       if (value === null) continue;
       const list = series.get(entry.name) ?? [];
       list.push({ workoutId: workout.id, date: workout.date, value });
@@ -72,7 +72,7 @@ export function analyzeHistory(workouts: Workout[], threshold = 0.35): HistoryAn
   // 1. Tippfehler innerhalb einer Einheit
   for (const workout of workouts) {
     for (const entry of workout.exercises) {
-      const working = entry.sets.filter(isWorkingSet);
+      const working = entry.sets.filter(isMainSet);
       const kept = plausibleSets(working);
       if (kept.length === working.length) continue;
       const reference = median(kept.filter(hasLoad).map((set) => set.weight as number)) ?? 0;

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Ban, Plus, SkipForward, Trash2, X } from 'lucide-react';
+import { Ban, CornerDownRight, Plus, SkipForward, Trash2, X } from 'lucide-react';
 import { Button, cx, Sheet } from '../../components/ui';
 import { formatFull } from '../../domain/dates';
 import { KeypadField } from '../../components/Keypad';
 import { exerciseLabel, workoutTitle } from '../../domain/plan';
+import { dropCount, mainSetIndex, mainSetNumber, removeSetAt } from '../../domain/strength';
+import { MAX_DROPS } from '../../state/drafts';
 import type { ExerciseEntry, SetEntry, Workout } from '../../domain/types';
 import { useStore } from '../../state/store';
 
@@ -111,22 +113,30 @@ export function WorkoutSheet({ workout, onClose }: { workout: Workout | null; on
                     </span>
                   ))}
                 </div>
-                {entry.sets.map((set, setIndex) => (
-                  <div key={setIndex} className="grid grid-cols-[2rem_1fr_1fr_1fr_2rem] items-center gap-1.5 py-0.5">
-                    <span className="tabular text-center text-[14px] text-ink-3">{setIndex + 1}</span>
-                    <CellInput value={set.reps} onChange={(reps) => updateSet(index, setIndex, { reps })} label={`Set ${setIndex + 1} Reps`} />
-                    <CellInput decimal value={set.weight} onChange={(weight) => updateSet(index, setIndex, { weight })} label={`Set ${setIndex + 1} Weight`} />
-                    <CellInput value={set.rir ?? null} onChange={(rir) => updateSet(index, setIndex, { rir })} label={`Set ${setIndex + 1} RIR`} />
-                    <button
-                      type="button"
-                      aria-label={`Set ${setIndex + 1} entfernen`}
-                      onClick={() => updateExercise(index, (item) => ({ ...item, sets: item.sets.filter((_, position) => position !== setIndex) }))}
-                      className="flex h-9 w-8 items-center justify-center rounded-lg text-ink-4 hover:text-danger"
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
-                ))}
+                {entry.sets.map((set, setIndex) => {
+                  const number = mainSetNumber(entry.sets, setIndex);
+                  const name = set.drop ? `Dropsatz zu Set ${number}` : `Set ${number}`;
+                  return (
+                    <div key={setIndex} className="grid grid-cols-[2rem_1fr_1fr_1fr_2rem] items-center gap-1.5 py-0.5">
+                      {set.drop ? (
+                        <CornerDownRight size={14} className="justify-self-center text-accent" style={{ marginLeft: (setIndex - mainSetIndex(entry.sets, setIndex) - 1) * 6 }} />
+                      ) : (
+                        <span className="tabular text-center text-[14px] text-ink-3">{number}</span>
+                      )}
+                      <CellInput value={set.reps} onChange={(reps) => updateSet(index, setIndex, { reps })} label={`${name} Reps`} />
+                      <CellInput decimal value={set.weight} onChange={(weight) => updateSet(index, setIndex, { weight })} label={`${name} Weight`} />
+                      <CellInput value={set.rir ?? null} onChange={(rir) => updateSet(index, setIndex, { rir })} label={`${name} RIR`} />
+                      <button
+                        type="button"
+                        aria-label={`${name} entfernen`}
+                        onClick={() => updateExercise(index, (item) => ({ ...item, sets: removeSetAt(item.sets, setIndex) }))}
+                        className="flex h-9 w-8 items-center justify-center rounded-lg text-ink-4 hover:text-danger"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  );
+                })}
                 <button
                   type="button"
                   onClick={() =>
@@ -139,6 +149,20 @@ export function WorkoutSheet({ workout, onClose }: { workout: Workout | null; on
                 >
                   <Plus size={14} /> Set
                 </button>
+                {entry.sets.length > 0 && dropCount(entry.sets, mainSetIndex(entry.sets, entry.sets.length - 1)) < MAX_DROPS && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateExercise(index, (item) => {
+                        const last = item.sets.at(-1);
+                        return { ...item, sets: [...item.sets, { reps: last?.reps ?? null, weight: last?.weight ?? null, drop: true }] };
+                      })
+                    }
+                    className="mt-1 inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[12.5px] font-medium text-ink-3 hover:text-ink"
+                  >
+                    <CornerDownRight size={14} /> Dropsatz
+                  </button>
+                )}
               </div>
             )}
           </section>

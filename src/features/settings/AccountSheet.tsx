@@ -39,7 +39,7 @@ export function AccountSheet({ open, onClose }: { open: boolean; onClose: () => 
     }
   };
 
-  const sets = workouts.reduce((sum, workout) => sum + workout.exercises.reduce((inner, exercise) => inner + exercise.sets.length, 0), 0);
+  const sets = workouts.reduce((sum, workout) => sum + workout.exercises.reduce((inner, exercise) => inner + exercise.sets.filter((set) => !set.drop).length, 0), 0);
 
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(exportPayload({ workouts, bodyweight, cardio, settings }), null, 2)], { type: 'application/json' });

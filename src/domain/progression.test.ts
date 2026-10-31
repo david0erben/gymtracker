@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recommend, isPlateau } from './progression';
+import { recommend, isPlateau, snapshotOf } from './progression';
 import { defaultSettings, resolveExerciseConfig, type ExerciseConfig } from './settings';
 import type { ExerciseSession } from './strength';
 import type { SetEntry } from './types';
@@ -39,7 +39,8 @@ describe('recommend', () => {
     const result = recommend([session('2026-10-19', [[40, 8], [40, 7], [40, 6]])], config(), rules, '2026-10-26');
     expect(result.kind).toBe('reps');
     expect(result.weight).toBe(40);
-    expect(result.sets.map((set) => set.reps)).toEqual([9, 8, 7]);
+    // ohne Verlauf ein Rep mehr auf dem schwächsten Satz
+    expect(result.sets.map((set) => set.reps)).toEqual([8, 7, 7]);
   });
 
   it('erhöht das Gewicht, wenn alle Sätze am oberen Ende waren', () => {
@@ -70,7 +71,7 @@ describe('recommend', () => {
   it('toleriert eine Wiederholung unter dem Bereich, Ziele bleiben aber in der Range', () => {
     const result = recommend([session('2026-10-19', [[40, 6], [40, 5], [40, 4]])], config(), rules, '2026-10-26');
     expect(result.kind).toBe('reps');
-    expect(result.sets.map((set) => set.reps)).toEqual([7, 6, 6]);
+    expect(result.sets.map((set) => set.reps)).toEqual([6, 6, 6]);
   });
 
   it('empfiehlt nie Reps außerhalb der Range und nie andere Set-Zahlen', () => {
@@ -95,7 +96,8 @@ describe('recommend', () => {
     expect(result.kind).toBe('reps');
     expect(result.weight).toBe(90);
     expect(result.sets).toHaveLength(3);
-    expect(result.sets.slice(0, 2).map((set) => set.reps)).toEqual([11, 11]);
+    expect(result.sets.slice(0, 2).map((set) => set.reps)).toEqual([10, 10]);
+    expect(result.headline).toBe('Alle Sets');
   });
 
   it('zielt nach einer Steigerung mindestens aufs untere Ende des Bereichs', () => {
@@ -107,7 +109,7 @@ describe('recommend', () => {
     expect(result.note).toMatch(/Großer Sprung/);
   });
 
-  it('rechnet gemischte Gewichte auf ein einheitliches Gewicht um', () => {
+  it('rechnet stark gemischte Gewichte auf ein einheitliches Gewicht um', () => {
     const result = recommend(
       [session('2026-10-19', [[40, 6], [40, 4], [20, 15], [20, 15]])],
       config(),
@@ -141,7 +143,7 @@ describe('recommend', () => {
     const bodyweight = config({ bodyweight: true, repMin: 6, repMax: 10 });
     const result = recommend([session('2026-10-20', [[null, 6], [null, 6], [null, 6]])], bodyweight, rules, '2026-10-27');
     expect(result.kind).toBe('reps');
-    expect(result.sets.map((set) => set.reps)).toEqual([7, 7, 7]);
+    expect(result.sets.map((set) => set.reps)).toEqual([7, 6, 6]);
     expect(result.weight).toBeNull();
   });
 
@@ -161,5 +163,185 @@ describe('recommend', () => {
     const result = recommend([session('2026-10-20', [[33.75, 15], [33.75, 15]])], cable, rules, '2026-10-27');
     expect(result.kind).toBe('increase');
     expect(((result.weight! - 1.25) / 2.5) % 1).toBeCloseTo(0);
+  });
+});
+
+describe('Tempo: nicht jedes Training steigern', () => {
+  const range = (sets = 2) => config({ repMin: 10, repMax: 12, sets, step: 2.5 });
+
+  it('plant nach einer neuen Bestleistung erst die gleichen Reps', () => {
+    const result = recommend(
+      [session('2026-10-12', [[40, 10], [40, 10]]), session('2026-10-19', [[40, 11], [40, 11]])],
+      range(),
+      rules,
+      '2026-10-26',
+    );
+    expect(result.kind).toBe('hold');
+    expect(result.headline).toBe('Halten');
+    expect(result.weight).toBe(40);
+    expect(result.sets.map((set) => set.reps)).toEqual([11, 11]);
+  });
+
+  it('steigert, sobald das Niveau bestätigt ist', () => {
+    const result = recommend(
+      [
+        session('2026-10-05', [[40, 10], [40, 10]]),
+        session('2026-10-12', [[40, 11], [40, 11]]),
+        session('2026-10-19', [[40, 11], [40, 11]]),
+      ],
+      range(),
+      rules,
+      '2026-10-26',
+    );
+    expect(result.kind).toBe('reps');
+    expect(result.sets.map((set) => set.reps)).toEqual([12, 11]);
+  });
+
+  it('erhöht nach einem Ausreißer nach oben nicht sofort das Gewicht', () => {
+    const result = recommend(
+      [session('2026-10-12', [[40, 10], [40, 10], [40, 9]]), session('2026-10-19', [[40, 12], [40, 12], [40, 12]])],
+      range(3),
+      rules,
+      '2026-10-26',
+    );
+    expect(result.kind).toBe('hold');
+    expect(result.weight).toBe(40);
+    expect(result.reason).toMatch(/Starke Einheit/);
+  });
+
+  it('orientiert sich nach einem Einbruch an der letzten Einheit, nicht am Bestwert', () => {
+    const result = recommend(
+      [
+        session('2026-10-05', [[40, 10], [40, 10], [40, 9]]),
+        session('2026-10-12', [[40, 12], [40, 12], [40, 11]]),
+        session('2026-10-19', [[40, 11], [40, 10], [40, 10]]),
+      ],
+      range(3),
+      rules,
+      '2026-10-26',
+    );
+    expect(result.kind).toBe('reps');
+    expect(result.sets.map((set) => set.reps)).toEqual([11, 11, 10]);
+  });
+
+  it('lernt: wer Steigerungen zuverlässig hält, muss nicht erst bestätigen', () => {
+    const steady: Array<[number, number]> = [[10, 10], [11, 10], [11, 11], [12, 11], [12, 12], [13, 12], [13, 13]];
+    const sessions = steady.map(([a, b], index) => session(`2026-09-${String(index + 7).padStart(2, '0')}`, [[40, a], [40, b]]));
+    const result = recommend(sessions, config({ repMin: 8, repMax: 20, sets: 2 }), rules, '2026-09-16');
+    expect(result.kind).toBe('reps');
+    expect(result.note).toMatch(/Steigerungen/);
+  });
+
+  it('lernt deinen typischen Zuwachs pro Einheit', () => {
+    const sessions = [
+      session('2026-09-07', [[40, 8], [40, 8]]),
+      session('2026-09-14', [[40, 9], [40, 9]]),
+      session('2026-09-21', [[40, 9], [40, 9]]),
+      session('2026-09-28', [[40, 10], [40, 10]]),
+      session('2026-10-05', [[40, 10], [40, 10]]),
+      session('2026-10-12', [[40, 11], [40, 11]]),
+      session('2026-10-19', [[40, 11], [40, 11]]),
+    ];
+    const result = recommend(sessions, config({ repMin: 8, repMax: 15, sets: 2 }), rules, '2026-10-26');
+    expect(result.sets.map((set) => set.reps)).toEqual([12, 12]);
+    expect(result.headline).toBe('+2 Reps');
+  });
+
+  it('überspringt das Bestätigen, wenn laut RIR noch Luft war', () => {
+    const easy = session('2026-10-19', [[40, 11], [40, 11]]);
+    easy.sets = easy.sets.map((set) => ({ ...set, rir: 4 }));
+    const result = recommend([session('2026-10-12', [[40, 10], [40, 10]]), easy], range(), rules, '2026-10-26');
+    expect(result.kind).toBe('reps');
+    expect(result.reason).toMatch(/noch Luft/);
+  });
+
+  it('rechnet unter dem Bereich nicht doppelt drauf', () => {
+    const result = recommend(
+      [session('2026-10-12', [[85, 7], [85, 7]]), session('2026-10-19', [[85, 7], [85, 6]])],
+      config({ repMin: 8, repMax: 12, sets: 2 }),
+      rules,
+      '2026-10-26',
+    );
+    expect(result.sets.map((set) => set.reps)).toEqual([8, 8]);
+    expect(result.reason).toMatch(/Zielbereich/);
+  });
+
+  it('wertet eine bestätigte Bestleistung nicht als Plateau', () => {
+    const same = () => [[30, 6], [30, 6], [30, 6]] as Array<[number, number]>;
+    const sessions = [session('2026-09-28', same()), session('2026-10-05', same()), session('2026-10-12', same()), session('2026-10-19', same())];
+    expect(isPlateau(sessions, 3, 3)).toBe(false);
+    expect(isPlateau([session('2026-09-21', same()), ...sessions], 3, 3)).toBe(true);
+  });
+});
+
+describe('unterschiedliche Gewichte pro Satz', () => {
+  const stack = config({ repMin: 10, repMax: 12, sets: 3, step: 5 });
+
+  it('stellt Satz für Satz um, wenn das neue Gewicht nicht für alle Sätze reicht', () => {
+    const result = recommend([session('2026-10-19', [[40, 12], [40, 12], [40, 12]])], stack, rules, '2026-10-26');
+    expect(result.kind).toBe('increase');
+    expect(result.weight).toBe(45);
+    expect(result.sets).toEqual([{ reps: 10, weight: 45 }, { reps: 12, weight: 40 }, { reps: 12, weight: 40 }]);
+    expect(snapshotOf(result).weights).toEqual([45, 40, 40]);
+  });
+
+  it('nimmt alle Sätze mit, wenn es laut Schätzung reicht', () => {
+    const light = config({ repMin: 8, repMax: 12, sets: 3, step: 2.5 });
+    const result = recommend([session('2026-10-19', [[60, 12], [60, 12], [60, 12]])], light, rules, '2026-10-26');
+    expect(new Set(result.sets.map((set) => set.weight)).size).toBe(1);
+    expect(snapshotOf(result).weights).toBeUndefined();
+  });
+
+  it('baut den schweren Satz erst auf, bevor der nächste Satz nachzieht', () => {
+    const result = recommend(
+      [session('2026-10-12', [[40, 12], [40, 12], [40, 12]]), session('2026-10-19', [[45, 10], [40, 12], [40, 12]])],
+      stack,
+      rules,
+      '2026-10-26',
+    );
+    expect(result.kind).toBe('reps');
+    expect(result.sets).toEqual([{ reps: 11, weight: 45 }, { reps: 12, weight: 40 }, { reps: 12, weight: 40 }]);
+  });
+
+  it('zieht den nächsten Satz nach, sobald es laut Schätzung passt', () => {
+    const result = recommend(
+      [session('2026-10-12', [[45, 10], [40, 12], [40, 12]]), session('2026-10-19', [[45, 11], [40, 12], [40, 12]])],
+      stack,
+      rules,
+      '2026-10-26',
+    );
+    expect(result.kind).toBe('increase');
+    expect(result.sets.map((set) => set.weight)).toEqual([45, 45, 40]);
+  });
+
+  it('geht zurück, wenn das schwerere Gewicht klar zu viel war', () => {
+    const result = recommend(
+      [session('2026-10-12', [[40, 12], [40, 12], [40, 12]]), session('2026-10-19', [[45, 7], [40, 12], [40, 12]])],
+      stack,
+      rules,
+      '2026-10-26',
+    );
+    expect(result.kind).toBe('decrease');
+    expect(result.sets.every((set) => set.weight === 40)).toBe(true);
+  });
+
+  it('hebt schwere Sätze unter dem Bereich nur bis in die Range', () => {
+    const result = recommend(
+      [session('2026-10-12', [[85, 7], [75, 10], [75, 10]]), session('2026-10-19', [[85, 7], [75, 10], [75, 10]])],
+      config({ repMin: 8, repMax: 12, sets: 3, step: 5 }),
+      rules,
+      '2026-10-26',
+    );
+    expect(result.sets).toEqual([{ reps: 8, weight: 85 }, { reps: 10, weight: 75 }, { reps: 10, weight: 75 }]);
+  });
+
+  it('ignoriert einen leichten Zusatzsatz über die Planung hinaus', () => {
+    const result = recommend(
+      [session('2026-10-19', [[40, 11], [40, 10], [40, 10], [30, 15]])],
+      stack,
+      rules,
+      '2026-10-26',
+    );
+    expect(result.sets.every((set) => set.weight === 40)).toBe(true);
   });
 });

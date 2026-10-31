@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, Check, SkipForward } from 'lucide-react';
+import { Ban, Check, CircleCheck, CircleDashed, SkipForward } from 'lucide-react';
 import { Button, cx, Sheet } from '../../components/ui';
 import { formatNumber } from '../../domain/format';
 import { exerciseLabel } from '../../domain/plan';
-import { missingExercises, type DraftSession, type FinishOptions } from '../../state/drafts';
+import { missingExercises, sessionProgress, type DraftSession, type FinishOptions } from '../../state/drafts';
 
 type DeviationChoice = 'today' | 'new' | 'keep';
 
@@ -51,6 +51,13 @@ export function FinishSheet({
   const doneSets = draft.exercises.flatMap((exercise) => exercise.sets.filter((set) => set.done));
   const volume = doneSets.reduce((sum, set) => sum + (set.weight ?? 0) * (set.reps ?? 0), 0);
   const exercisesDone = draft.exercises.filter((exercise) => exercise.sets.some((set) => set.done)).length;
+  const progress = sessionProgress(draft);
+  const allDone = progress.open === 0;
+  const details = [
+    allDone ? `${progress.done} von ${progress.planned} Sets` : `${progress.open} ${progress.open === 1 ? 'Set' : 'Sets'} offen`,
+    ...(progress.extra ? [`${progress.extra} extra`] : []),
+    ...(progress.drops ? [`${progress.drops} ${progress.drops === 1 ? 'Dropsatz' : 'Dropsätze'}`] : []),
+  ];
 
   const toggle = (set: Set<string>, name: string, update: (next: Set<string>) => void) => {
     const next = new Set(set);
@@ -75,10 +82,20 @@ export function FinishSheet({
         </div>
       }
     >
+      <div className={cx('mb-3 flex items-center gap-3 rounded-2xl border px-4 py-3', allDone ? 'border-success/25 bg-success/[0.07]' : 'border-accent/25 bg-accent/[0.07]')}>
+        {allDone ? <CircleCheck size={22} className="shrink-0 text-success" /> : <CircleDashed size={22} className="shrink-0 text-accent-2" />}
+        <div className="min-w-0">
+          <p className={cx('text-[15px] font-semibold', allDone ? 'text-success' : 'text-ink')}>
+            {allDone ? 'Alle geplanten Sets erledigt' : `${progress.done} von ${progress.planned} geplanten Sets erledigt`}
+          </p>
+          <p className="text-[12.5px] text-ink-3">{details.join(' · ')}</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-3 gap-2">
         {[
           { label: 'Übungen', value: String(exercisesDone) },
-          { label: 'Sets', value: String(doneSets.length) },
+          { label: 'Sets', value: `${progress.done + progress.extra}/${progress.planned}` },
           { label: 'Volumen', value: `${formatNumber(Math.round(volume))} kg` },
         ].map((stat) => (
           <div key={stat.label} className="rounded-2xl border border-line bg-glass px-3 py-3">

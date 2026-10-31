@@ -56,7 +56,10 @@ export interface ExerciseOverride {
   repMin?: number;
   repMax?: number | null;
   sets?: number;
+  /** Eigene Gewichtsstufe dieser Übung (sonst vom Gerät) */
   step?: number;
+  /** Eigenes Startgewicht dieser Übung (sonst vom Gerät) */
+  base?: number;
 }
 
 export interface Rules {
@@ -288,7 +291,7 @@ export function resolveExerciseConfig(planned: PlannedExercise, settings: Settin
     extraSets,
     targetRir: profile.targetRir,
     step: override.step ?? equipment.step,
-    base: equipment.base,
+    base: override.base ?? equipment.base,
     bodyweight: Boolean(equipment.bodyweight),
     equipment,
     profile,

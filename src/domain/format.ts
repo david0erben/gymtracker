@@ -27,7 +27,7 @@ export function parseInteger(input: string): number | null {
 
 export function formatSet(reps: number | null, weight: number | null): string {
   if (weight === null || weight === 0) return `${reps ?? '–'} Reps`;
-  return `${formatNumber(weight)} × ${reps ?? '–'}`;
+  return `${reps ?? '–'} × ${formatNumber(weight)}`;
 }
 
 export function pluralize(count: number, singular: string, plural: string): string {

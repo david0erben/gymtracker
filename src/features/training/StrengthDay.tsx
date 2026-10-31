@@ -4,7 +4,19 @@ import { Button } from '../../components/ui';
 import { todayKey } from '../../domain/dates';
 import type { TrainingPlan } from '../../domain/plan';
 import type { DayKey } from '../../domain/types';
-import { draftFromRecommendations, draftKey, doneSetCount, isExerciseComplete, type DraftExercise, type DraftSession, type DraftSet, type FinishOptions } from '../../state/drafts';
+import { removeSetAt } from '../../domain/strength';
+import {
+  draftFromRecommendations,
+  draftKey,
+  doneSetCount,
+  insertDropSet,
+  isExerciseComplete,
+  sessionProgress,
+  type DraftExercise,
+  type DraftSession,
+  type DraftSet,
+  type FinishOptions,
+} from '../../state/drafts';
 import { useStore } from '../../state/store';
 import { useDayPlan } from '../../state/useDayPlan';
 import { ExerciseCard } from './ExerciseCard';
@@ -78,7 +90,8 @@ export function StrengthDay({ plan: trainingPlan, day }: { plan: TrainingPlan; d
 
   const addSet = (index: number) =>
     mutateExercise(index, (exercise) => {
-      const template = [...exercise.sets].reverse().find((set) => set.done) ?? exercise.sets.at(-1);
+      const main = exercise.sets.filter((set) => !set.drop);
+      const template = [...main].reverse().find((set) => set.done) ?? main.at(-1);
       return {
         ...exercise,
         sets: [...exercise.sets, { reps: template?.reps ?? null, weight: template?.weight ?? null, rir: null, done: false }],
@@ -86,9 +99,15 @@ export function StrengthDay({ plan: trainingPlan, day }: { plan: TrainingPlan; d
     });
 
   const removeSet = (index: number, setIndex: number) =>
-    mutateExercise(index, (exercise) => ({ ...exercise, sets: exercise.sets.filter((_, position) => position !== setIndex) }));
+    mutateExercise(index, (exercise) => ({ ...exercise, sets: removeSetAt(exercise.sets, setIndex) }));
+
+  const addDrop = (index: number, mainIndex: number) => {
+    const { step, base } = plan[index].config;
+    mutateExercise(index, (exercise) => ({ ...exercise, sets: insertDropSet(exercise.sets, mainIndex, step, base) }));
+  };
 
   const doneSets = doneSetCount(draft);
+  const progress = sessionProgress(session);
   const completedExercises = session.exercises.filter(isExerciseComplete).length;
   const total = session.exercises.length;
 
@@ -101,6 +120,7 @@ export function StrengthDay({ plan: trainingPlan, day }: { plan: TrainingPlan; d
   };
 
   const confirmFinish = (options: FinishOptions) => {
+    const finished = sessionProgress(session);
     const workout = finishWorkout(key, options);
     setFinishing(false);
     if (!workout) {
@@ -114,8 +134,7 @@ export function StrengthDay({ plan: trainingPlan, day }: { plan: TrainingPlan; d
         return { ...current, levelShifts };
       });
     }
-    const sets = workout.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
-    showToast(`Stark! ${sets} Sets gespeichert.`, 'success');
+    showToast(finished.open === 0 ? 'Stark! Alle geplanten Sets erledigt.' : `Stark! ${finished.done} von ${finished.planned} geplanten Sets erledigt.`, 'success');
     setExpanded(0);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -172,6 +191,7 @@ export function StrengthDay({ plan: trainingPlan, day }: { plan: TrainingPlan; d
             onSaveSet={(setIndex) => saveSet(index, setIndex)}
             onAddSet={() => addSet(index)}
             onRemoveSet={(setIndex) => removeSet(index, setIndex)}
+            onAddDrop={(mainIndex) => addDrop(index, mainIndex)}
             onToggleSkip={() => {
               const skipping = !exercise.skipped;
               mutateExercise(index, (item) => ({ ...item, skipped: !item.skipped }));
@@ -186,7 +206,11 @@ export function StrengthDay({ plan: trainingPlan, day }: { plan: TrainingPlan; d
         <Button variant="primary" className="w-full" onClick={startFinish}>
           <Flag size={18} /> Training abschließen
         </Button>
-        {doneSets > 0 && <p className="mt-2 text-center text-[12.5px] text-ink-3">{doneSets} Sets gespeichert – wird automatisch gesichert.</p>}
+        {doneSets > 0 && (
+          <p className="mt-2 text-center text-[12.5px] text-ink-3">
+            {progress.open === 0 ? 'Alle geplanten Sets erledigt' : `${progress.done} von ${progress.planned} geplanten Sets erledigt`} – wird automatisch gesichert.
+          </p>
+        )}
       </div>
 
       <FinishSheet open={finishing} draft={session} onClose={() => setFinishing(false)} onConfirm={confirmFinish} />

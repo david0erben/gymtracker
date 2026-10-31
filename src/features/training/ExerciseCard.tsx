@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Ban, Check, ChevronDown, Dumbbell, Ellipsis, Layers, Plus, Repeat, SkipForward, Sparkles, Trash2, TrendingDown, TrendingUp, Undo2 } from 'lucide-react';
+import { Ban, Check, ChevronDown, ChevronRight, CornerDownRight, Dumbbell, Ellipsis, Equal, Layers, Plus, Repeat, SkipForward, Sparkles, Trash2, TrendingDown, TrendingUp, Undo2 } from 'lucide-react';
 import { cx, ProgressRing, Sheet } from '../../components/ui';
 import { formatShort } from '../../domain/dates';
 import { formatNumber, formatSet } from '../../domain/format';
 import { plannedName } from '../../domain/plan';
-import { nextStepAbove, nextStepBelow, round2 } from '../../domain/strength';
+import { dropCount, firstStep, mainSetIndex, mainSetNumber, nextStepAbove, nextStepBelow } from '../../domain/strength';
 import type { RecommendationKind } from '../../domain/types';
 import type { PlanItem } from '../../state/useDayPlan';
-import type { DraftExercise, DraftSet } from '../../state/drafts';
+import { MAX_DROPS, type DraftExercise, type DraftSet } from '../../state/drafts';
 import { NumberStepper } from './NumberStepper';
 
 const KIND_STYLE: Record<RecommendationKind, string> = {
   increase: 'bg-success/12 text-success border-success/25',
   reps: 'bg-accent/15 text-accent-3 border-accent/30',
+  hold: 'bg-glass-2 text-ink-2 border-line-2',
   decrease: 'bg-danger/12 text-danger border-danger/25',
   deload: 'bg-danger/12 text-danger border-danger/25',
   comeback: 'bg-accent-2/12 text-accent-2 border-accent-2/25',
@@ -22,7 +23,20 @@ const KIND_STYLE: Record<RecommendationKind, string> = {
 function KindIcon({ kind }: { kind: RecommendationKind }) {
   if (kind === 'increase') return <TrendingUp size={13} strokeWidth={2.5} />;
   if (kind === 'decrease' || kind === 'deload') return <TrendingDown size={13} strokeWidth={2.5} />;
+  if (kind === 'hold') return <Equal size={13} strokeWidth={2.5} />;
   return <Sparkles size={13} strokeWidth={2.5} />;
+}
+
+/** Baumlinie eines Dropsatzes: läuft vom Satz darüber nach unten und mit einem Pfeil in den Dropsatz. */
+function DropBranch({ level }: { level: number }) {
+  const left = 30 + (level - 1) * 12;
+  return (
+    <span aria-hidden className="absolute inset-0">
+      <span className="absolute -top-1 bottom-1/2 w-px bg-accent/70" style={{ left }} />
+      <span className="absolute top-1/2 h-px w-2 bg-accent/70" style={{ left }} />
+      <ChevronRight size={11} strokeWidth={3} className="absolute top-1/2 -translate-y-1/2 text-accent" style={{ left: left + 4 }} />
+    </span>
+  );
 }
 
 export function ExerciseCard({
@@ -35,6 +49,7 @@ export function ExerciseCard({
   onSaveSet,
   onAddSet,
   onRemoveSet,
+  onAddDrop,
   onToggleSkip,
   onToggleExcluded,
 }: {
@@ -47,6 +62,7 @@ export function ExerciseCard({
   onSaveSet: (setIndex: number) => void;
   onAddSet: () => void;
   onRemoveSet: (setIndex: number) => void;
+  onAddDrop: (mainIndex: number) => void;
   onToggleSkip: () => void;
   onToggleExcluded: () => void;
 }) {
@@ -54,23 +70,30 @@ export function ExerciseCard({
   const doneCount = exercise.sets.filter((set) => set.done).length;
   const complete = exercise.skipped || (exercise.sets.length > 0 && doneCount === exercise.sets.length);
   const firstOpen = exercise.sets.findIndex((set) => !set.done);
-  const [activeIndex, setActiveIndex] = useState<number>(firstOpen === -1 ? 0 : firstOpen);
+  // Alles erledigt: auf dem letzten Satz stehen, damit ein Dropsatz dort ansetzt
+  const [activeIndex, setActiveIndex] = useState<number>(firstOpen === -1 ? exercise.sets.length - 1 : firstOpen);
   const [menuOpen, setMenuOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const active = Math.min(activeIndex, Math.max(0, exercise.sets.length - 1));
   const activeSet = exercise.sets[active];
   const muscle = info.primary.join(' · ');
+  const mainSets = exercise.sets.filter((set) => !set.drop).length;
+  const activeNumber = mainSetNumber(exercise.sets, active);
+  const plannedWeights = [...new Set(recommendation.sets.flatMap((set) => (set.weight === null ? [] : [set.weight])))].map((weight) => formatNumber(weight)).join(' / ');
+  // Dropsatz: hängt am gerade gemachten Satz, auch wenn schon der nächste Satz offen ist
+  const dropTarget = activeSet ? mainSetIndex(exercise.sets, activeSet.done || active === 0 ? active : active - 1) : null;
+  const canDrop = dropTarget !== null && dropCount(exercise.sets, dropTarget) < MAX_DROPS;
 
   // Beim Aufklappen auf den ersten offenen Satz springen
   useEffect(() => {
-    if (expanded) setActiveIndex(firstOpen === -1 ? 0 : firstOpen);
+    if (expanded) setActiveIndex(firstOpen === -1 ? exercise.sets.length - 1 : firstOpen);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded]);
 
   const changeWeight = (direction: 1 | -1) => {
     const current = activeSet.weight;
     if (current === null || current === 0) {
-      if (direction === 1) onChangeSet(active, { weight: round2(config.base + config.step) });
+      if (direction === 1) onChangeSet(active, { weight: firstStep(config.step, config.base) });
       return;
     }
     const next = direction === 1 ? nextStepAbove(current, config.step, config.base) : nextStepBelow(current, config.step, config.base);
@@ -81,6 +104,7 @@ export function ExerciseCard({
   const reference = recommendation.weight ?? recommendation.last?.sets.reduce((max, set) => Math.max(max, set.weight ?? 0), 0) ?? null;
   const suspicious =
     activeSet &&
+    !activeSet.drop &&
     ((reference && activeSet.weight !== null && (activeSet.weight > reference * 1.6 || activeSet.weight < reference * 0.4)) ||
       (activeSet.reps !== null && activeSet.reps > Math.max(40, (config.repMax ?? config.repMin) * 2.5)));
 
@@ -115,7 +139,7 @@ export function ExerciseCard({
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 pr-6 text-[12.5px] text-ink-2">
               <span className="inline-flex items-center gap-1 whitespace-nowrap">
                 <Layers size={13} className="text-accent" />
-                {exercise.sets.length} Sets
+                {mainSets} Sets
                 {config.extraSets !== 0 && (
                   <span className={cx('font-semibold', config.extraSets > 0 ? 'text-success' : 'text-danger')} title="Aus deinem Wochenvolumen unter Ziele">
                     ({config.extraSets > 0 ? '+' : ''}
@@ -126,7 +150,7 @@ export function ExerciseCard({
               {recommendation.weight !== null && (
                 <span className="inline-flex items-center gap-1 whitespace-nowrap">
                   <Dumbbell size={13} className="text-accent" />
-                  {formatNumber(recommendation.weight)} kg
+                  {plannedWeights} kg
                 </span>
               )}
               <span className="inline-flex items-center gap-1 whitespace-nowrap">
@@ -174,20 +198,29 @@ export function ExerciseCard({
             </div>
             {exercise.sets.map((set, setIndex) => {
               const isActive = setIndex === active;
+              const number = mainSetNumber(exercise.sets, setIndex);
+              const level = set.drop ? setIndex - mainSetIndex(exercise.sets, setIndex) : 0;
               return (
                 <button
                   key={setIndex}
                   type="button"
                   onClick={() => setActiveIndex(setIndex)}
                   className={cx(
-                    'tabular relative grid h-11 w-full grid-cols-4 items-center rounded-xl text-center text-[17px] font-semibold transition',
+                    'tabular relative grid w-full grid-cols-4 items-center rounded-xl text-center font-semibold transition',
+                    set.drop ? 'h-9 text-[15px]' : 'h-11 text-[17px]',
                     isActive && 'bg-white/[0.13]',
                     set.done || isActive ? 'text-ink' : 'text-ink-3',
                   )}
-                  aria-label={`Set ${setIndex + 1}${set.done ? ', gespeichert' : ', Empfehlung'}`}
+                  aria-label={`${set.drop ? `Dropsatz ${level} zu Set ${number}` : `Set ${number}`}${set.done ? ', gespeichert' : set.drop ? '' : ', Empfehlung'}`}
                   aria-pressed={isActive}
                 >
-                  <span>{setIndex + 1}</span>
+                  {set.drop ? (
+                    <span className="relative self-stretch">
+                      <DropBranch level={level} />
+                    </span>
+                  ) : (
+                    <span>{number}</span>
+                  )}
                   <span>{set.reps ?? '–'}</span>
                   <span>{set.weight === null ? '–' : formatNumber(set.weight)}</span>
                   <span>{set.rir ?? '–'}</span>
@@ -235,7 +268,7 @@ export function ExerciseCard({
                   type="button"
                   onClick={save}
                   disabled={activeSet.reps === null || activeSet.reps < 1}
-                  aria-label={activeSet.done ? `Änderung an Set ${active + 1} speichern` : `Set ${active + 1} speichern`}
+                  aria-label={activeSet.done ? `Änderung an Set ${activeNumber} speichern` : `Set ${activeNumber} speichern`}
                   className="accent-gradient flex h-13 flex-1 items-center justify-center rounded-2xl text-on-accent shadow-[var(--shadow-glow)] transition active:scale-[0.98] disabled:opacity-40"
                 >
                   <Check size={26} strokeWidth={3} />
@@ -264,7 +297,7 @@ export function ExerciseCard({
 
       {!expanded && doneCount > 0 && !exercise.skipped && (
         <p className="tabular -mt-1 truncate px-4 pb-3.5 pl-[4.6rem] text-[12.5px] text-ink-3">
-          {exercise.sets.filter((set) => set.done).map((set) => formatSet(set.reps, set.weight)).join(' · ')}
+          {exercise.sets.filter((set) => set.done).map((set) => `${set.drop ? '↳ ' : ''}${formatSet(set.reps, set.weight)}`).join(' · ')}
         </p>
       )}
 
@@ -287,6 +320,18 @@ export function ExerciseCard({
 
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title={plannedName(item.planned)}>
         <div className="flex flex-col gap-1.5 pb-2">
+          {canDrop && (
+            <MenuItem
+              icon={<CornerDownRight size={18} />}
+              label="Dropsatz einfügen"
+              description={`Direkt nach Set ${mainSetNumber(exercise.sets, dropTarget)} mit weniger Gewicht weitermachen.`}
+              onClick={() => {
+                onAddDrop(dropTarget);
+                setActiveIndex(dropTarget + dropCount(exercise.sets, dropTarget) + 1);
+                setMenuOpen(false);
+              }}
+            />
+          )}
           <MenuItem
             icon={<Plus size={18} />}
             label="Set hinzufügen"
@@ -299,7 +344,7 @@ export function ExerciseCard({
           {exercise.sets.length > 1 && (
             <MenuItem
               icon={<Trash2 size={18} />}
-              label={`Set ${active + 1} entfernen`}
+              label={activeSet?.drop ? 'Dropsatz entfernen' : `Set ${activeNumber} entfernen`}
               onClick={() => {
                 onRemoveSet(active);
                 setActiveIndex(Math.max(0, active - 1));

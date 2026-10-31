@@ -9,6 +9,11 @@ export function isWorkingSet(set: SetEntry): boolean {
   return typeof set.reps === 'number' && set.reps >= 1;
 }
 
+/** Eigenständiger Satz – Dropsätze hängen am Satz davor und zählen nicht extra. */
+export function isMainSet(set: SetEntry): boolean {
+  return isWorkingSet(set) && !set.drop;
+}
+
 export function hasLoad(set: SetEntry): boolean {
   return isWorkingSet(set) && typeof set.weight === 'number' && set.weight > 0;
 }
@@ -74,11 +79,50 @@ export function nextStepAbove(weight: number, step: number, base = 0): number {
   return snapped > weight + EPS ? snapped : round2(snapped + step);
 }
 
-/** Nächste Stufe echt unter `weight`, nie unter 0. */
+/** Leichtestes Gewicht am Gerät: das Startgewicht, sonst die erste Stufe. */
+export function firstStep(step: number, base = 0): number {
+  return base > 0 ? base : step;
+}
+
+/** Nächste Stufe echt unter `weight`, nie unter 0 und nie unter das Startgewicht des Geräts. */
 export function nextStepBelow(weight: number, step: number, base = 0): number {
   const snapped = snapDown(weight, step, base);
   const below = snapped < weight - EPS ? snapped : round2(snapped - step);
+  if (base > 0 && below < base) return weight > base + EPS ? base : weight;
   return Math.max(0, below);
+}
+
+/* ---------- Dropsätze ---------- */
+
+/** Hauptsatz, zu dem ein Satz gehört (bei einem Dropsatz der Satz darüber). */
+export function mainSetIndex(sets: { drop?: boolean }[], index: number): number {
+  let main = index;
+  while (main > 0 && sets[main].drop) main -= 1;
+  return main;
+}
+
+/** Anzahl der Dropsätze direkt unter einem Hauptsatz. */
+export function dropCount(sets: { drop?: boolean }[], mainIndex: number): number {
+  let count = 0;
+  while (sets[mainIndex + count + 1]?.drop) count += 1;
+  return count;
+}
+
+/** Laufende Nummer eines Hauptsatzes (Dropsätze zählen nicht mit). */
+export function mainSetNumber(sets: { drop?: boolean }[], index: number): number {
+  return sets.slice(0, index + 1).filter((set) => !set.drop).length;
+}
+
+/** Entfernt einen Satz; bei einem Hauptsatz gehen seine Dropsätze mit. */
+export function removeSetAt<T extends { drop?: boolean }>(sets: T[], index: number): T[] {
+  const count = sets[index]?.drop ? 1 : 1 + dropCount(sets, index);
+  return sets.filter((_, position) => position < index || position >= index + count);
+}
+
+/** Gewicht für den nächsten Dropsatz: rund 20 % leichter, auf dem Raster des Geräts. */
+export function dropWeight(weight: number, step: number, base = 0): number {
+  const target = Math.max(firstStep(step, base), snapNearest(weight * 0.8, step, base));
+  return target < weight - EPS ? target : nextStepBelow(weight, step, base);
 }
 
 /* ---------- Verlauf einer Übung ---------- */
@@ -122,7 +166,7 @@ export function exerciseSessions(
   for (const workout of [...workouts].sort(compareWorkouts)) {
     for (const entry of workout.exercises) {
       if (entry.name !== name || entry.skipped) continue;
-      const sets = plausibleSets(entry.sets.filter(isWorkingSet));
+      const sets = plausibleSets(entry.sets.filter(isMainSet));
       if (!sets.length) continue;
       if (entry.excluded && !options.includeExcluded) continue;
       sessions.push({
