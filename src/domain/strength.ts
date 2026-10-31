@@ -9,7 +9,7 @@ export function isWorkingSet(set: SetEntry): boolean {
   return typeof set.reps === 'number' && set.reps >= 1;
 }
 
-/** Eigenständiger Satz – Dropsätze hängen am Satz davor und zählen nicht extra. */
+/** Eigenständiger Satz. Dropsätze hängen am Satz darüber: Sie zählen fürs Volumen, nicht für Empfehlung und Kraftkurve. */
 export function isMainSet(set: SetEntry): boolean {
   return isWorkingSet(set) && !set.drop;
 }
@@ -117,12 +117,6 @@ export function mainSetNumber(sets: { drop?: boolean }[], index: number): number
 export function removeSetAt<T extends { drop?: boolean }>(sets: T[], index: number): T[] {
   const count = sets[index]?.drop ? 1 : 1 + dropCount(sets, index);
   return sets.filter((_, position) => position < index || position >= index + count);
-}
-
-/** Gewicht für den nächsten Dropsatz: rund 20 % leichter, auf dem Raster des Geräts. */
-export function dropWeight(weight: number, step: number, base = 0): number {
-  const target = Math.max(firstStep(step, base), snapNearest(weight * 0.8, step, base));
-  return target < weight - EPS ? target : nextStepBelow(weight, step, base);
 }
 
 /* ---------- Verlauf einer Übung ---------- */

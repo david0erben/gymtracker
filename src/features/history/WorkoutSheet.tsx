@@ -153,10 +153,7 @@ export function WorkoutSheet({ workout, onClose }: { workout: Workout | null; on
                   <button
                     type="button"
                     onClick={() =>
-                      updateExercise(index, (item) => {
-                        const last = item.sets.at(-1);
-                        return { ...item, sets: [...item.sets, { reps: last?.reps ?? null, weight: last?.weight ?? null, drop: true }] };
-                      })
+                      updateExercise(index, (item) => ({ ...item, sets: [...item.sets, { reps: null, weight: null, drop: true }] }))
                     }
                     className="mt-1 inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[12.5px] font-medium text-ink-3 hover:text-ink"
                   >

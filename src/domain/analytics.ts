@@ -172,12 +172,11 @@ export function weeklyVolume(workouts: Workout[], start: string | null, today: s
     if (!bucket) continue;
     for (const entry of workout.exercises) {
       if (entry.skipped) continue;
-      // Dropsätze zählen nicht als eigene Sets, das bewegte Gewicht aber schon
       const sets = plausibleSets(entry.sets.filter(isMainSet));
       const drops = entry.sets.filter((set) => isWorkingSet(set) && set.drop);
       const kg = entry.excluded ? 0 : [...sets, ...drops].reduce((sum, set) => sum + (set.weight ?? 0) * (set.reps ?? 0), 0);
       for (const muscle of exerciseInfo(entry.name).primary) {
-        bucket.sets[muscle] += sets.length;
+        bucket.sets[muscle] += sets.length + drops.length;
         bucket.tonnage[muscle] += kg;
       }
     }

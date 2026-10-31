@@ -44,7 +44,7 @@ function summary(workout: Workout) {
     if (entry.excluded) excluded += 1;
     for (const set of entry.sets) {
       if (!set.reps) continue;
-      if (!set.drop) sets += 1;
+      sets += 1;
       volume += (set.weight ?? 0) * set.reps;
     }
   }

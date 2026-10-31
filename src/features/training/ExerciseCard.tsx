@@ -80,8 +80,10 @@ export function ExerciseCard({
   const mainSets = exercise.sets.filter((set) => !set.drop).length;
   const activeNumber = mainSetNumber(exercise.sets, active);
   const plannedWeights = [...new Set(recommendation.sets.flatMap((set) => (set.weight === null ? [] : [set.weight])))].map((weight) => formatNumber(weight)).join(' / ');
-  // Dropsatz: hängt am gerade gemachten Satz, auch wenn schon der nächste Satz offen ist
-  const dropTarget = activeSet ? mainSetIndex(exercise.sets, activeSet.done || active === 0 ? active : active - 1) : null;
+  // Dropsatz: kommt unter den ausgewählten Satz
+  const dropTarget = activeSet ? mainSetIndex(exercise.sets, active) : null;
+  // Ohne Gewicht würde ein Dropsatz nichts zum Volumen beitragen
+  const dropNeedsWeight = Boolean(activeSet?.drop && dropTarget !== null && exercise.sets[dropTarget].weight && !activeSet.weight);
   const canDrop = dropTarget !== null && dropCount(exercise.sets, dropTarget) < MAX_DROPS;
 
   // Beim Aufklappen auf den ersten offenen Satz springen
@@ -267,7 +269,7 @@ export function ExerciseCard({
                 <button
                   type="button"
                   onClick={save}
-                  disabled={activeSet.reps === null || activeSet.reps < 1}
+                  disabled={activeSet.reps === null || activeSet.reps < 1 || dropNeedsWeight}
                   aria-label={activeSet.done ? `Änderung an Set ${activeNumber} speichern` : `Set ${activeNumber} speichern`}
                   className="accent-gradient flex h-13 flex-1 items-center justify-center rounded-2xl text-on-accent shadow-[var(--shadow-glow)] transition active:scale-[0.98] disabled:opacity-40"
                 >
@@ -324,7 +326,7 @@ export function ExerciseCard({
             <MenuItem
               icon={<CornerDownRight size={18} />}
               label="Dropsatz einfügen"
-              description={`Direkt nach Set ${mainSetNumber(exercise.sets, dropTarget)} mit weniger Gewicht weitermachen.`}
+              description={`Unter Set ${mainSetNumber(exercise.sets, dropTarget)} – Reps und Gewicht trägst du selbst ein.`}
               onClick={() => {
                 onAddDrop(dropTarget);
                 setActiveIndex(dropTarget + dropCount(exercise.sets, dropTarget) + 1);

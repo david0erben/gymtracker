@@ -28,12 +28,13 @@ describe('sessionProgress', () => {
 });
 
 describe('Dropsätze im Training', () => {
-  it('fügt Dropsätze direkt unter dem Hauptsatz ein, jeweils leichter', () => {
-    const first = insertDropSet([set(true), set(false)], 0, 2.5, 0);
-    expect(first.map((item) => Boolean(item.drop))).toEqual([false, true, false]);
-    expect(first[1]).toMatchObject({ weight: 32.5, reps: 10, done: false });
-    const second = insertDropSet(first, 0, 2.5, 0);
-    expect(second.map((item) => item.weight)).toEqual([40, 32.5, 25, 40]);
+  it('fügt leere Dropsätze unter dem gewählten Satz ein, hinter vorhandene Dropsätze', () => {
+    const sets = [set(true), set(true), set(false)];
+    const first = insertDropSet(sets, 1);
+    expect(first.map((item) => Boolean(item.drop))).toEqual([false, false, true, false]);
+    expect(first[2]).toMatchObject({ reps: null, weight: null, done: false });
+    const second = insertDropSet(first, 1);
+    expect(second.map((item) => Boolean(item.drop))).toEqual([false, false, true, true, false]);
   });
 
   it('speichert Dropsätze als solche', () => {

@@ -2,7 +2,7 @@ import { addDays, weekStart } from './dates';
 import { weeklyVolume } from './analytics';
 import { exerciseInfo, MUSCLE_GROUPS, strengthDays, type MuscleGroup, type PlannedExercise } from './plan';
 import { activePlan, resolveExerciseConfig, type Settings } from './settings';
-import { isMainSet } from './strength';
+import { isWorkingSet } from './strength';
 import type { DayKey, Workout } from './types';
 
 /** Muskelgruppen zu Bereichen zusammengefasst – „Arms“ = Biceps + Triceps usw. */
@@ -79,7 +79,7 @@ export function recentRegionVolume(workouts: Workout[], today: string, muscles: 
     if (workout.date < start || workout.date >= thisWeek) continue;
     for (const entry of workout.exercises) {
       if (entry.skipped || !exerciseInfo(entry.name).primary.some((muscle) => muscles.includes(muscle))) continue;
-      sets += entry.sets.filter(isMainSet).length;
+      sets += entry.sets.filter(isWorkingSet).length;
     }
   }
   return sets / 4;

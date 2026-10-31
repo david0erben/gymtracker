@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { weeklyVolume } from './analytics';
 import { formatSet } from './format';
 import { defaultSettings, resolveExerciseConfig } from './settings';
-import { dropCount, dropWeight, exerciseSessions, firstStep, mainSetIndex, mainSetNumber, nextStepAbove, nextStepBelow, removeSetAt } from './strength';
+import { dropCount, exerciseSessions, firstStep, mainSetIndex, mainSetNumber, nextStepAbove, nextStepBelow, removeSetAt } from './strength';
 import type { Workout } from './types';
 
 describe('Gewichtsraster mit Startgewicht', () => {
@@ -45,12 +45,6 @@ describe('Dropsätze', () => {
     expect(removeSetAt(sets, 1)).toHaveLength(5);
   });
 
-  it('wählt rund 20 % weniger auf dem Raster', () => {
-    expect(dropWeight(40, 2.5)).toBe(32.5);
-    expect(dropWeight(10, 3.5, 3)).toBe(6.5);
-    expect(dropWeight(3, 3.5, 3)).toBe(3);
-  });
-
   const workout: Workout = {
     id: 'w1',
     date: '2026-10-19',
@@ -73,9 +67,9 @@ describe('Dropsätze', () => {
     expect(exerciseSessions([workout], 'Cable Curl')[0].sets).toHaveLength(2);
   });
 
-  it('zählen beim Volumen nicht als Set, aber beim bewegten Gewicht', () => {
+  it('zählen beim Volumen voll mit, als Set und beim bewegten Gewicht', () => {
     const [week] = weeklyVolume([workout], '2026-10-19', '2026-10-19');
-    expect(week.sets.Biceps).toBe(2);
+    expect(week.sets.Biceps).toBe(3);
     expect(week.tonnage.Biceps).toBe(10 * 20 + 8 * 15 + 10 * 20);
   });
 });

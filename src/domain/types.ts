@@ -11,7 +11,7 @@ export interface SetEntry {
   weight: number | null;
   /** Reps in Reserve, optional. */
   rir?: number | null;
-  /** Dropsatz: gehört zum Satz davor, zählt nicht als eigenes Set */
+  /** Dropsatz zum Satz darüber: zählt fürs Volumen, nicht für Empfehlung, Kraftkurve und geplante Sets */
   drop?: boolean;
 }
 

@@ -4,7 +4,7 @@ import { Button } from '../../components/ui';
 import { todayKey } from '../../domain/dates';
 import type { TrainingPlan } from '../../domain/plan';
 import type { DayKey } from '../../domain/types';
-import { removeSetAt } from '../../domain/strength';
+import { mainSetIndex, removeSetAt } from '../../domain/strength';
 import {
   draftFromRecommendations,
   draftKey,
@@ -80,8 +80,11 @@ export function StrengthDay({ plan: trainingPlan, day }: { plan: TrainingPlan; d
 
   const saveSet = (index: number, setIndex: number) => {
     const exercise = session.exercises[index];
-    changeSet(index, setIndex, { done: true });
-    const willComplete = exercise.sets.every((set, position) => position === setIndex || set.done);
+    // Ein Dropsatz setzt den Satz darüber voraus – der gilt damit als gemacht
+    const main = mainSetIndex(exercise.sets, setIndex);
+    const saved = (position: number) => position === setIndex || position === main;
+    mutateExercise(index, (current) => ({ ...current, sets: current.sets.map((set, position) => (saved(position) ? { ...set, done: true } : set)) }));
+    const willComplete = exercise.sets.every((set, position) => saved(position) || set.done);
     if (willComplete) {
       const nextSession = { ...session, exercises: session.exercises.map((item, position) => (position === index ? { ...item, sets: item.sets.map((set) => ({ ...set, done: true })) } : item)) };
       setExpanded(firstIncomplete(nextSession, index) ?? firstIncomplete(nextSession));
@@ -101,10 +104,8 @@ export function StrengthDay({ plan: trainingPlan, day }: { plan: TrainingPlan; d
   const removeSet = (index: number, setIndex: number) =>
     mutateExercise(index, (exercise) => ({ ...exercise, sets: removeSetAt(exercise.sets, setIndex) }));
 
-  const addDrop = (index: number, mainIndex: number) => {
-    const { step, base } = plan[index].config;
-    mutateExercise(index, (exercise) => ({ ...exercise, sets: insertDropSet(exercise.sets, mainIndex, step, base) }));
-  };
+  const addDrop = (index: number, mainIndex: number) =>
+    mutateExercise(index, (exercise) => ({ ...exercise, sets: insertDropSet(exercise.sets, mainIndex) }));
 
   const doneSets = doneSetCount(draft);
   const progress = sessionProgress(session);

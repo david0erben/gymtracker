@@ -1,6 +1,6 @@
 import { planById } from '../domain/plan';
 import { snapshotOf, type Recommendation } from '../domain/progression';
-import { dropCount, dropWeight } from '../domain/strength';
+import { dropCount } from '../domain/strength';
 import type { DayKey, ExerciseEntry, RecommendationSnapshot, SetEntry, Workout } from '../domain/types';
 import { createId } from '../data/legacy';
 
@@ -67,12 +67,10 @@ export function doneSetCount(draft: DraftSession | undefined): number {
 /** Bis zu so viele Dropsätze pro Set. */
 export const MAX_DROPS = 3;
 
-/** Fügt unter einem Hauptsatz einen Dropsatz ein – etwas leichter als der Satz darüber. */
-export function insertDropSet(sets: DraftSet[], mainIndex: number, step: number, base: number): DraftSet[] {
+/** Fügt unter einem Hauptsatz einen leeren Dropsatz ein – Reps und Gewicht trägst du selbst ein. */
+export function insertDropSet(sets: DraftSet[], mainIndex: number): DraftSet[] {
   const index = mainIndex + dropCount(sets, mainIndex) + 1;
-  const previous = sets[index - 1];
-  const weight = previous.weight ? dropWeight(previous.weight, step, base) : previous.weight;
-  return [...sets.slice(0, index), { reps: previous.reps, weight, rir: null, done: false, drop: true }, ...sets.slice(index)];
+  return [...sets.slice(0, index), { reps: null, weight: null, rir: null, done: false, drop: true }, ...sets.slice(index)];
 }
 
 export interface SessionProgress {
